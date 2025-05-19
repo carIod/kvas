@@ -1,20 +1,18 @@
 #!/bin/sh
-
-EQUALS_INTERFACE_FILE=/opt/etc/inface_equals
-
+source /opt/apps/kvas/bin/libs/main
 
 get_config_value(){
-        grep "${1}" /opt/etc/kvas.conf | cut -d'=' -f2
+        grep "${1}" "${KVAS_CONF_FILE}" | cut -d'=' -f2
 }
 get_current_entware_vpn_interface() {
         inface_entware=$(get_config_value INFACE_ENT)
-        inface=$(grep "${inface_entware}" "${EQUALS_INTERFACE_FILE}" | cut -d'|' -f2)
+        inface=$(grep "${inface_entware}" "${INFACE_NAMES_FILE}" | cut -d'|' -f2)
         echo "${inface}"
 }
 
 get_current_cli_vpn_interface() {
         inface_entware=$(get_config_value INFACE_ENT)
-        inface=$(grep "${inface_entware}" "${EQUALS_INTERFACE_FILE}"  | cut -d'|' -f1)
+        inface=$(grep "${inface_entware}" "${INFACE_NAMES_FILE}"  | cut -d'|' -f1)
         echo "${inface}"
 }
 
@@ -82,22 +80,16 @@ test_connection(){
         if echo "${ENTWARE_INTERFACE}" | grep -q ezcfg ; then
         	ssr_ip=$(cat < "${SHADOWSOCKS_CONF}" | grep '"server"'| sed 's/.*:.*"\(.*\)".*/\1/')
         	# если пинг на сервер ssr не проходит или статус сервиса отличен от alive, то перезапускаем сервис ssr
-            if ! ping -c1 -A | "${ssr_ip}" | grep -q 'seq=' || /opt/etc/init.d/S22shadowsocks status | grep -vq alive ; then
-                        reset_ssr_connection
+            if ! ping -c1 "${ssr_ip}" >/dev/null || /opt/etc/init.d/S22shadowsocks status | grep -vq alive ; then
+                        restart_ssr_connection
             fi
         else
 #        	если соединение отлично от ssr и его состояния: state и link отличны от up,
 #        	а состояние флага connected отлично от состояния yes, то vpn соединение перезапускаем
 			if curl -s "http://localhost:79/rci/show/interface" | jq -r '.[] | select(.id=="'"${CLI_INTERFACE}"'" and .state=="up" and .link=="up") | .connected' | grep -qv 'yes' ; then
-					reset_vpn_connection
+					restart_vpn_connection
 			fi
 
-#			После проверки работоспособности кода выше этот код и участвующие в нем функции выше удалить!!!
-			#ip_to_test=$(get_ip_from_unblock)
-			#for i in {0..3}
-			#do
-			#       ps w | grep -v grep | grep -q "ping -I ${ENTWARE_INTERFACE} ${ip_to_test}" ||  ping_ip "${ip_to_test}"
-			#done
         fi
 
 
