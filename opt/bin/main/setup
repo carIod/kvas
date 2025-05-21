@@ -454,16 +454,16 @@ cmd_install(){
 		#------------------------------------------------------
 		# меняем номер старой версии пакета на новый
 		#------------------------------------------------------
-		new_ver=$(get_config_value APP_VERSION)
-		new_rel=$(get_config_value APP_RELEASE)
+		#new_ver=$(get_config_value APP_VERSION)
+		#new_rel=$(get_config_value APP_RELEASE)
 
 		#------------------------------------------------------
 		# ВОССТАНАВЛИВАЕМ ФАЙЛ СО СПИСКОМ РАЗБЛОКИРОВКИ
 		#------------------------------------------------------
 		restore_backups
 
-		set_config_value APP_VERSION "${new_ver}"
-		set_config_value APP_RELEASE "${new_rel}"
+		#set_config_value APP_VERSION "${new_ver}"
+		#set_config_value APP_RELEASE "${new_rel}"
 		#------------------------------------------------------
 
 		inface_entware=$(get_config_value INFACE_ENT)
