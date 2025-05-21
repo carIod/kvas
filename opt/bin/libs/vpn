@@ -1273,11 +1273,12 @@ cmd_vpn_status() {
 #
 # ------------------------------------------------------------------------------------------
 ndm_interface_change() {
-	inface_entware="${1}"; inface_cli="${2}"
+	inface_entware="${1}"; inface_cli="${2}" inface_cli_desc="${3}"
 	cp /opt/apps/kvas/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
 	chmod +x /opt/apps/kvas/bin/libs/ndm
 	set_config_value "INFACE_ENT" "${inface_entware}"
 	set_config_value "INFACE_CLI" "${inface_cli}"
+	set_config_value "INFACE_CLI_DESC" "${inface_cli_desc}"
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1288,8 +1289,8 @@ ndm_interface_change() {
 vpn_on() {
 
 	inface_entware="${1}"
-	inface_cli=$(grep "${inface_entware}" "${INFACE_NAMES_FILE}" | cut -d '|' -f1 )
-	inface_cli_desc=$(grep "${inface_entware}" "${INFACE_NAMES_FILE}" | cut -d '|' -f3 )
+	inface_cli=$(awk -F'|' -v val="${inface_entware}" '$2 == val { print $1; exit }' "${INFACE_NAMES_FILE}")
+	inface_cli_desc=$(awk -F'|' -v val="${inface_entware}" '$2 == val { print $3; exit }' "${INFACE_NAMES_FILE}")
 
 	ready "Интерфейс ${inface_cli_desc} подключен "
 	{
@@ -1297,7 +1298,7 @@ vpn_on() {
 		cp "/opt/apps/kvas/etc/ndm/fs.d/100-vpn" "/opt/etc/ndm/fs.d/100-vpn"
 		chmod +x "/opt/etc/ndm/fs.d/100-vpn"
 	#	Производим замену в библиотеке ndm основных значения интерфейсов
-		ndm_interface_change "${inface_entware}" "${inface_cli}"
+		ndm_interface_change "${inface_entware}" "${inface_cli}" "${inface_cli_desc}"
 
 		cp "/opt/apps/kvas/etc/ndm/netfilter.d/100-vpn-mark" "/opt/etc/ndm/netfilter.d/100-vpn-mark"
 		chmod +x "/opt/etc/ndm/netfilter.d/100-vpn-mark"
@@ -1390,7 +1391,7 @@ shadowsocks_backup() {
 }
 
 
-get_ssr_entware_interface()(ip4 a | grep "${SSR_ENTWARE_TEMPL}" | head -1 | cut -d': ' -f2 | tr -d ' ')
+get_ssr_entware_interface()(ip4 a | grep "${}" | head -1 | cut -d': ' -f2 | tr -d ' ')
 
 
 shadowsocks_read_config(){
@@ -1453,7 +1454,7 @@ cmd_shadowsocks_read_new_data() {
 	print_line
 
 	shadowsocks_read_data
-	ndm_interface_change "$(get_ssr_entware_interface)" "shadowsocks"
+	ndm_interface_change "$(get_ssr_entware_interface)" "shadowsocks" "shadowsocks"
 	shadowsocks_config_check &>/dev/null
 	service_restart  shadowsocks S22shadowsocks
 
@@ -1637,7 +1638,7 @@ shadowsocks_on() {
 	cp "/opt/apps/kvas/etc/ndm/netfilter.d/100-proxy-redirect" "/opt/etc/ndm/netfilter.d/100-proxy-redirect"
 	chmod +x "/opt/etc/ndm/netfilter.d/100-proxy-redirect"
 
-	ndm_interface_change "$(get_ssr_entware_interface)" "shadowsocks"
+	ndm_interface_change "$(get_ssr_entware_interface)" "shadowsocks" "shadowsocks"
 
 	cmd_shadowsocks_iptable_reset  &> /dev/null
 	#   настройка S22shadowsocks конфигурации
@@ -1868,8 +1869,9 @@ switch_vpn_on(){
 #	entware интерфейс
 	inface_entware=${1}
 	cli_inface=${2}
+	cli_inface_desc="${3}"
 #	Меняем интерфейс в файле ndm
-	ndm_interface_change "${inface_entware}" "${cli_inface}"
+	ndm_interface_change "${inface_entware}" "${cli_inface}" "${cli_inface_desc}"
 
 	if [[ "${inface_entware}" =~ ${SSR_ENTWARE_TEMPL} ]]; then
 		vpn_off &> /dev/null
@@ -1930,7 +1932,8 @@ select_vpn_interface() {
 	#		Меняем интерфейс в файле ndm
 			inface_entware=$(get_vpn_interface_by_num "${num_vpn_inface}")
 			cli_inface=$(awk -F'|' -v val="${inface_entware}" '$2 == val { print $1; exit }' "${INFACE_NAMES_FILE}")
-			switch_vpn_on "${inface_entware}" "${cli_inface}"
+			cli_inface_desc=$(awk -F'|' -v val="${inface_entware}" '$2 == val { print $3; exit }' "${INFACE_NAMES_FILE}")
+			switch_vpn_on "${inface_entware}" "${cli_inface}" "${cli_inface_desc}"
 
 			else
 				error "Число должно быть в пределах от 1 до ${total}"
@@ -2020,11 +2023,11 @@ cmd_interface_set_manual() {
 
 	# Если интерфейс есть в системе, пробуем найти его в INFACE_NAMES_FILE
 	cli_inface=$(awk -F'|' -v val="$manual_if" '$2 == val { print $1; exit }' "${INFACE_NAMES_FILE}")
+	cli_inface_desc=$(awk -F'|' -v val="${inface_entware}" '$2 == val { print $3; exit }' "${INFACE_NAMES_FILE}")
 	if [ -n "${cli_inface}" ]; then # интерфейс айден в файле значит ввели обычный интерфейс и cli_inface нам становится известным
-		switch_vpn_on "${manual_if}" "${cli_inface}"
+		switch_vpn_on "${manual_if}" "${cli_inface}" "${cli_inface_desc}"
 	else
-		cli_inface="manual"
-		switch_vpn_on "${manual_if}" "${cli_inface}"
+		switch_vpn_on "${manual_if}" "manual" "manual"
 	fi
 }
 
