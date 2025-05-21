@@ -19,8 +19,8 @@
 #	Дата создания: 21/05/2022
 #	Лицензия: Apache License 2.0
 # -----------------------------------------------------------------------------
-app_name="КВАС"
-logger -t "${app_name}" "Запущен файл ${0}"
+APP_NAME_DESC=КВАС
+logger -t "${APP_NAME_DESC}" "Запущен файл ${0}"
 
 IPSET_TABLE_NAME=kvas
 adguard_config=/opt/etc/AdGuardHome/AdGuardHome.yaml
