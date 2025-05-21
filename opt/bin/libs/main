@@ -377,8 +377,8 @@ version(){
 #
 # ------------------------------------------------------------------------------------------
 set_config_value() {
-	if grep -oq "${1}" "${KVAS_CONF_FILE}"; then
-		sed -i "s/\(${1}=\).*/\1${2}/; s/^,//; s/\,/ /g;" "${KVAS_CONF_FILE}"
+	if grep -oq "^${1}" "${KVAS_CONF_FILE}"; then
+		sed -i "s|^${1}=.*|${1}=${2}|" "${KVAS_CONF_FILE}"
 	else
 		echo "${1}=${2}" >> "${KVAS_CONF_FILE}"
 	fi
