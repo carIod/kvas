@@ -60,6 +60,9 @@ debug/
 backup/
 tests/
 
+ipk/*.ipk
+ipk/*.tar.gz
+
 # mpeltonen/sbt-idea plugin
 #.idea_modules/
 

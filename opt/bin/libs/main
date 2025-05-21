@@ -3,6 +3,8 @@
 #
 # 	ПРОЕКТ КВАС
 #
+APP_VERSION=1.1.9
+APP_RELEASE=release-3-pre1
 # ------------------------------------------------------------------------------------------
 # 	Данный файл служит основной библиотекой функций пакета КВАС
 # ------------------------------------------------------------------------------------------
@@ -356,8 +358,8 @@ get_config_value() {
 	grep "${1}=" "${KVAS_CONF_FILE}" | cut -d'=' -f2
 }
 
-APP_VERSION=$(get_config_value APP_VERSION)
-APP_RELEASE=$(get_config_value APP_RELEASE)
+#APP_VERSION=$(get_config_value APP_VERSION)
+#APP_RELEASE=$(get_config_value APP_RELEASE)
 
 version(){
 	[ -n "${APP_RELEASE}" ] && APP_RELEASE=" ${APP_RELEASE}"

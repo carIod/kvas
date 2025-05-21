@@ -28,7 +28,7 @@ set_escapes(){
 	QST="${RED}?${NOCL}"
 }
 WGET='/opt/bin/wget -q --no-check-certificate'
-# Вы полняем команду отключения DNS провайдера без перезагрузки и выхода из сессии
+# Выполняем команду отключения DNS провайдера без перезагрузки и выхода из сессии
 rci_post()($WGET -qO - --post-data="$1" localhost:79/rci/ > /dev/null 2>&1)
 
 
@@ -178,18 +178,41 @@ remove_nano(){
 	[ -n "${nano_name}" ] && opkg --force-remove --force-depends remove "${nano_name}" &> /dev/null
 }
 
+# 1. Получаем текущую установленную версию из конфига
+get_installed_version() {
+    if [ ! -f "${kvas_main_sh}" ]; then
+        echo "Ошибка: файл конфигурации не найден: ${kvas_main_sh}" >&2
+        return 1
+    fi
+
+    grep -E '^APP_VERSION=|^APP_RELEASE=' "${kvas_main_sh}" | \
+    sort | \
+    tr -d '\n' | \
+    sed -E 's/^APP_VERSION=([^[:space:]]+)APP_RELEASE=([^[:space:]]+)/\1-\2/' | \
+    tr '-' '_'
+}
+
+# 2. Извлекаем версию из имени пакета
+get_package_version() {
+    echo "${1}" | \
+    sed -E 's/^kvas_([0-9.]+(-[^_]+)?)_all.*/\1/' | \
+    tr '-' '_'
+}
+
 #--------------------------------------------------------------------------------------------------------------
 #	Переменные используемые в обновлении пакета
 #--------------------------------------------------------------------------------------------------------------
 
 # Ссылка на репозиторий на GitHub для получения крайней версии пакета
-release_url=https://api.github.com/repos/qzeleza/kvas/releases
+release_url=https://api.github.com/repos/carIod/kvas/releases
 # Получаем ссылку на крайний релиз пакета на GitHub
 package_url=$(curl -sH "Accept: application/vnd.github.v3+json" ${release_url}/latest | sed -n 's/.*browser_download_url\": "\(.*\)\"/\1/p;'| tr -d ' ' |  sed '/^$/d')
 # Выделяем имя пакета из ссылки
 package_name=$(get_package_name "${package_url}")
-# путь к файлу конфигурации пакета Квас
-kvas_conf=/opt/etc/kvas.conf
+# Извлекаем версии один раз в начале
+package_version=$(get_package_version "${package_name}")
+# путь к файлу где находится версия и релиз Квас
+kvas_main_sh=/opt/apps/kvas/bin/libs/main
 # Вычисляем текущую ширину экрана для печати линий определенной ширины
 length=$(stty size 2>/dev/null | cut -d' ' -f2)
 # длина распечатываемой линии символов будет меньше на 12 символов чем ширина экрана
@@ -242,16 +265,16 @@ if echo "${*}" | grep -qv 'force' ; then
 		select_release_from_list package_url
 		package_name=$(get_package_name "${package_url}")
 
-	elif [ -f /opt/bin/kvas ] && [ -f /opt/etc/kvas.conf ]; then
+	elif [ -f /opt/bin/kvas ] && [ -f "${kvas_main_sh}" ]; then
 	#	Если это не форсированная установка и не откат, то
 	#	проверяем - обнаружена ли предыдущая версия Кваса
 	#	и сравниваем ее версию с новой версией
-		prev_ver=$(cat < /opt/etc/kvas.conf \
-					| grep -E 'VERSION|RELEASE' \
-					| tr -d '\n' | tr '-' '_' \
-					| sed 's/^APP_VERSION=\(.*\)APP_RELEASE=\(.*\)/\1-\2\n/')
-		next_ver=$(echo "${package_name}" |  sed 's/kvas_\(.*\)_all.*/\1/')
-		if [ "${prev_ver}" = "${next_ver}" ] ; then
+		prev_ver=$(get_installed_version) || exit 1
+		
+    	echo "Текущая версия: ${prev_ver}"
+    	echo "Новая версия: ${package_version}"
+
+		if [ "${prev_ver}" = "${package_version}" ] ; then
 			print_error "Квас все еще свеж, обновлений пока нет."
 			exit 1
 		fi
@@ -264,12 +287,12 @@ fi
 
 #--------------------------------------------------------------------------------------------------------------
 # получаем из имени файла его номер версии
-version=$(echo "${package_name}" | sed 's/kvas_\(.*\)_all.*/\1/; s/-/ /g; s/_/-/' )
+human_version=$(echo "${package_version}" | tr '_' ' ')
 
 
 print_line
 # запускаем этап установки пакета
-echo -e "${GREEN}Установка пакета КВАС версии ${BLUE}[${version}]${NOCL}"
+echo -e "${GREEN}Установка пакета КВАС версии ${BLUE}[${human_version}]${NOCL}"
 
 # в случае отсутствия возможности создания новой папки
 cd /opt && mkdir -p /opt/packages || {
@@ -308,15 +331,15 @@ if [ -f /opt/bin/kvas ] && kvas | grep -q 'Настройка пакета не 
 else
 #	если все хорошо и обнаружена предыдущая версия пакета, то удаляем ее
 	if [ -f /opt/bin/kvas ]; then
-		ver=$(grep "APP_VERSION=" "${kvas_conf}" | cut -d'=' -f2)
-		rel=$(grep "APP_RELEASE=" "${kvas_conf}" | cut -d'=' -f2)
+		#ver=$(grep "APP_VERSION=" "${kvas_main_sh}" | cut -d'=' -f2)
+		#rel=$(grep "APP_RELEASE=" "${kvas_main_sh}" | cut -d'=' -f2)
 		#ready "Удаляем предыдущую версию пакета  [${ver} ${rel}]..."
 		kvas uninstall "${remove_mode}" yes # && when_ok || when_err
 	fi
 fi
 
 #--------------------------------------------------------------------------------------------------------------
-ready "Устанавливаем новую версию пакета [${version}]..."
+ready "Устанавливаем новую версию пакета [${human_version}]..."
 {
 	opkg update &> /dev/null
 	opkg install "/opt/packages/${package_name}"

@@ -117,6 +117,7 @@ case "${1}" in
 	vpn)
 		case "${2}" in
 			set) 			cmd_interface_change skip && cmd_vpn_iptable_reset &> /dev/null ;;
+			manual)         cmd_interface_set_manual && cmd_vpn_iptable_reset &> /dev/null ;;	
 			reset) 			cmd_vpn_iptable_reset && all_services_restart;;
 			net | guest)
 				case "${3}" in

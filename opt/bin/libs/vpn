@@ -1995,6 +1995,42 @@ select_vpn_interface() {
 
 }
 
+
+cmd_interface_set_manual() {
+	manual_if="${1}"
+
+	if [ -z "$manual_if" ]; then
+		print_line
+		echo -en "${BLUE}Введите имя VPN интерфейса вручную (например: wg0, tun0): ${NOCL}"
+		read -r manual_if
+	fi
+
+	manual_if=$(echo "$manual_if" | tr -d ' ') # удаляем все пробелы
+
+	if [[ -z "$manual_if" ]]; then
+		error "Имя интерфейса не может быть пустым"
+		return 1
+	fi
+
+	# Сначала проверим, существует ли такой интерфейс в системе
+	if ! ip a show "$manual_if" &>/dev/null; then
+		error "Интерфейс '$manual_if' не существует в системе (ip a)"
+		return 1
+	fi
+
+	# Если интерфейс есть в системе, пробуем найти его в INFACE_NAMES_FILE
+	if grep -q "^${manual_if}|" "$INFACE_NAMES_FILE"; then
+		inface_entware=$(grep "^${manual_if}|" "$INFACE_NAMES_FILE" | cut -d"|" -f2)
+ОШИБКА		cli_inface="${manual_if}"
+		switch_vpn_on "${inface_entware}" "${cli_inface}"
+	else
+ОШИБКА		cli_inface="${manual_if}"
+		inface_entware="${manual_if}"
+		switch_vpn_on "${inface_entware}" "${cli_inface}"
+	fi
+}
+
+
 # ------------------------------------------------------------------------------------------
 #
 #	Обновляем маршруты и таблицы ipset...
