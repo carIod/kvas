@@ -233,7 +233,7 @@ ip4() (/opt/sbin/ip -4 "$@")
 #
 # ------------------------------------------------------------------------------------------
 cmd_help() {
-	cat < "/opt/apps/${APP_NAME}/etc/conf/${APP_NAME}.help"
+	cat < "/opt/apps/kvas/etc/conf/kvas.help"
 }
 
 
@@ -1274,7 +1274,7 @@ cmd_vpn_status() {
 # ------------------------------------------------------------------------------------------
 ndm_interface_change() {
 	inface_entware="${1}"; inface_cli="${2}"
-	cp /opt/apps/${APP_NAME}/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
+	cp /opt/apps/kvas/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
 	chmod +x /opt/apps/kvas/bin/libs/ndm
 	set_config_value "INFACE_ENT" "${inface_entware}"
 	set_config_value "INFACE_CLI" "${inface_cli}"
@@ -1294,18 +1294,18 @@ vpn_on() {
 	ready "Интерфейс ${inface_cli_desc} подключен "
 	{
 
-		cp "/opt/apps/${APP_NAME}/etc/ndm/fs.d/100-vpn" "/opt/etc/ndm/fs.d/100-vpn"
+		cp "/opt/apps/kvas/etc/ndm/fs.d/100-vpn" "/opt/etc/ndm/fs.d/100-vpn"
 		chmod +x "/opt/etc/ndm/fs.d/100-vpn"
 	#	Производим замену в библиотеке ndm основных значения интерфейсов
 		ndm_interface_change "${inface_entware}" "${inface_cli}"
 
-		cp "/opt/apps/${APP_NAME}/etc/ndm/netfilter.d/100-vpn-mark" "/opt/etc/ndm/netfilter.d/100-vpn-mark"
+		cp "/opt/apps/kvas/etc/ndm/netfilter.d/100-vpn-mark" "/opt/etc/ndm/netfilter.d/100-vpn-mark"
 		chmod +x "/opt/etc/ndm/netfilter.d/100-vpn-mark"
 
 #		Если версия фирменной оболочки равно или больше 4.0,
 #		то применяем механизм iflayerchanged.d, если нет, то ifstatechanged.d
 		hook_dir=$(get_hook_dir)
-		cp "/opt/apps/${APP_NAME}/etc/ndm/${hook_dir}/100-kvas-vpn" "/opt/etc/ndm/${hook_dir}/100-kvas-vpn"
+		cp "/opt/apps/kvas/etc/ndm/${hook_dir}/100-kvas-vpn" "/opt/etc/ndm/${hook_dir}/100-kvas-vpn"
 		chmod +x "/opt/etc/ndm/${hook_dir}/100-kvas-vpn"
 
 		state=$(get_value_interface_field "${inface_cli}" state)
@@ -1467,7 +1467,7 @@ cmd_shadowsocks_read_new_data() {
 shadowsocks_read_data() {
 
 	#	устанавливаем новую конфигурацию shadowsocks
-	cp -f "/opt/apps/${APP_NAME}/etc/conf/shadowsocks.json" "${SHADOWSOCKS_CONF}"
+	cp -f "/opt/apps/kvas/etc/conf/shadowsocks.json" "${SHADOWSOCKS_CONF}"
 
 	answer=''; read_ynq "У Вас имеется кодированная ss:// ссылка для ввода данных" answer
 	if [ "${answer}" = q ] ; then exit_q; exit 1; fi
@@ -1634,7 +1634,7 @@ shadowsocks_on() {
 	inface=$(get_inface_by_ip "${local_ip}")
 
 	#	настройка файла 100-proxy-redirect
-	cp "/opt/apps/${APP_NAME}/etc/ndm/netfilter.d/100-proxy-redirect" "/opt/etc/ndm/netfilter.d/100-proxy-redirect"
+	cp "/opt/apps/kvas/etc/ndm/netfilter.d/100-proxy-redirect" "/opt/etc/ndm/netfilter.d/100-proxy-redirect"
 	chmod +x "/opt/etc/ndm/netfilter.d/100-proxy-redirect"
 
 	ndm_interface_change "$(get_ssr_entware_interface)" "shadowsocks"
@@ -1863,24 +1863,6 @@ show_interface_name_list_process(){
 		update_interface_name_list
 	fi
 }
-# ------------------------------------------------------------------------------------------
-#
-#	Переключаем интерфейс клиента
-#   $1  - ask - делаем запросы на ввод данные ,
-#   	  no - список интерфейсов не обновляем
-#
-# ------------------------------------------------------------------------------------------
-cmd_interface_change() {
-
-	answer="${1}"
-	is_install_stage="${2:-no}"
-
-	show_interface_name_list_process "${answer}"
-
-#	Отображаем список текущих интерфейсов с номерами по порядку и данными об их доступности
-	select_vpn_interface "${is_install_stage}"
-
-}
 
 switch_vpn_on(){
 #	entware интерфейс
@@ -1936,7 +1918,7 @@ select_vpn_interface() {
 #	Отображаем список текущих интерфейсов с номерами по порядку и данными об их доступности
 	show_vpn_list
 
-	total=$(cat < "${INFACE_NAMES_FILE}" | wc -l)
+	total=$(wc -l < "${INFACE_NAMES_FILE}")
 	while true; do
 		print_line
 		echo -en "${BLUE}Выберите номер варианта VPN соединения 1 - ${total} | S-скан. | Q-выход:${NOCL} "
@@ -1947,7 +1929,7 @@ select_vpn_interface() {
 #			Если выбрали уже интерфейс
 	#		Меняем интерфейс в файле ndm
 			inface_entware=$(get_vpn_interface_by_num "${num_vpn_inface}")
-			cli_inface=$(echo "${INFACE_NAMES_FILE}" | grep "${inface_entware}" | cut -d"|" -f1)
+			cli_inface=$(awk -F'|' -v val="${inface_entware}" '$2 == val { print $1; exit }' "${INFACE_NAMES_FILE}")
 			switch_vpn_on "${inface_entware}" "${cli_inface}"
 
 			else
@@ -1995,6 +1977,24 @@ select_vpn_interface() {
 
 }
 
+# ------------------------------------------------------------------------------------------
+#
+#	Переключаем интерфейс клиента
+#   $1  - ask - делаем запросы на ввод данные ,
+#   	  no - список интерфейсов не обновляем
+#
+# ------------------------------------------------------------------------------------------
+cmd_interface_change() {
+
+	answer="${1}"
+	is_install_stage="${2:-no}"
+
+	show_interface_name_list_process "${answer}"
+
+#	Отображаем список текущих интерфейсов с номерами по порядку и данными об их доступности
+	select_vpn_interface "${is_install_stage}"
+
+}
 
 cmd_interface_set_manual() {
 	manual_if="${1}"
@@ -2019,14 +2019,12 @@ cmd_interface_set_manual() {
 	fi
 
 	# Если интерфейс есть в системе, пробуем найти его в INFACE_NAMES_FILE
-	if grep -q "^${manual_if}|" "$INFACE_NAMES_FILE"; then
-		inface_entware=$(grep "^${manual_if}|" "$INFACE_NAMES_FILE" | cut -d"|" -f2)
-ОШИБКА		cli_inface="${manual_if}"
-		switch_vpn_on "${inface_entware}" "${cli_inface}"
+	cli_inface=$(awk -F'|' -v val="$manual_if" '$2 == val { print $1; exit }' "${INFACE_NAMES_FILE}")
+	if [ -n "${cli_inface}" ]; then # интерфейс айден в файле значит ввели обычный интерфейс и cli_inface нам становится известным
+		switch_vpn_on "${manual_if}" "${cli_inface}"
 	else
-ОШИБКА		cli_inface="${manual_if}"
-		inface_entware="${manual_if}"
-		switch_vpn_on "${inface_entware}" "${cli_inface}"
+		cli_inface="manual"
+		switch_vpn_on "${manual_if}" "${cli_inface}"
 	fi
 }
 
