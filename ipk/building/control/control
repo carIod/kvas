@@ -4,10 +4,10 @@ Depends: libc, libssp, librt, libpthread, libpcre, jq, curl, knot-dig, nano-full
 Source: /home/zeleza/kvas
 SourceName: kvas
 Section: utils
-SourceDateEpoch: 1747796472
+SourceDateEpoch: 1747878872
 URL: no
 Architecture: all
-Installed-Size: 1418218
+Installed-Size: 1409757
 Description:  Данный пакет позволяет осуществлять контроль и поддерживать в актуальном состоянии
  защищенный список хостов или "Белый список". При обращении к любому хосту из
  этого списка, весь трафик будет идти через любое VPN или через Shadowsocks соединение,

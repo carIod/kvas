@@ -1,5 +1,8 @@
 #!/bin/sh
+
+# shellcheck source=..\libs\main
 . /opt/apps/kvas/bin/libs/main
+# shellcheck source=..\libs\vpn
 . /opt/apps/kvas/bin/libs/vpn
 
 # В случае проблем с инсталляцией пакета ставим в значение true
