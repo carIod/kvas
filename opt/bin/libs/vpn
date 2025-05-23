@@ -1,8 +1,12 @@
 #!/bin/sh
 
+# shellcheck source=opt\bin\libs\debug
 . /opt/apps/kvas/bin/libs/debug
+# shellcheck source=opt\etc\ndm\ndm
 . /opt/apps/kvas/bin/libs/ndm
+# shellcheck source=opt\bin\libs\adblock
 . /opt/apps/kvas/bin/libs/adblock
+# shellcheck source=opt\bin\libs\tags
 . /opt/apps/kvas/bin/libs/tags
 
 
@@ -532,7 +536,7 @@ cmd_adguardhome_status() {
 # ------------------------------------------------------------------------------------------
 adguardhome_check_config() {
 		# Проверяем наличие	архивной копии AdGuardHome
-		if [ -f "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml ] && [ -f ${ADGUARDHOME_DEMON}]; then
+		if [ -f "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml ] && [ -f "${ADGUARDHOME_DEMON}" ]; then
 			cp "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml "${ADGUARDHOME_CONFIG}"
 			"${ADGUARDHOME_DEMON}" restart  &> /dev/null
 			ip=$(get_router_ip)
@@ -621,8 +625,8 @@ adguardhome_install_locally() {
 			[ -f /opt/etc/init.d/S56dnsmasq ] && /opt/etc/init.d/S56dnsmasq stop &> /dev/null
 			[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && /opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
 			# обнуляем файлы конфигурации 
-			> /opt/etc/dnsmasq.d/kvas.dnsmasq
-			> /opt/var/log/AdGuardHome.log
+			: > /opt/etc/dnsmasq.d/kvas.dnsmasq
+			: > /opt/var/log/AdGuardHome.log
 
 			[ -f /opt/etc/hosts ] && cp /opt/etc/hosts "${KVAS_BACKUP_PATH}/hosts"
 
@@ -762,6 +766,7 @@ guest_include_to_list(){
 	desc_full=${2}
 	ent_inf=${3}
 
+	local MINUS
 	MINUS=10
 	
 	echo "${desc_full}" | grep -q 'is up' && color=${GREEN} || color=${RED}
@@ -1409,7 +1414,7 @@ shadowsocks_read_config(){
 	echo
 
 	# Экранируем символы для применения в sed
-	ESCAPED_PASSWD=$(escape_sed "$SSR_SERVER_PASSWD")
+	ESCAPED_PASSWD=$(escape_sed_replace "$SSR_SERVER_PASSWD")
 	if [ -f "${SHADOWSOCKS_CONF}" ] ; then
 
 		ready "Изменяем конфигурацию ${SHADOWSOCKS_CONF} для введенных данных..."
@@ -1515,7 +1520,7 @@ shadowsocks_read_link(){
 
 		if [ -f "${SHADOWSOCKS_CONF}" ] ; then
 			# Экранируем символы для применения в sed
-			ESCAPED_PASSWD=$(escape_sed "$SSR_SERVER_PASSWD")
+			ESCAPED_PASSWD=$(escape_sed_replace "$SSR_SERVER_PASSWD")
 
 			ready "Изменяем конфигурацию ${SHADOWSOCKS_CONF} для введенных данных..."
 			sed -i "s/\(\"server\":\).*/\1 \"${SSR_SERVER_IP}\",/; 			\
@@ -1561,12 +1566,18 @@ cmd_shadowsocks_iptable_reset() {
 		inface=$(get_inface_by_ip "${local_ip}")
 		proxy_port=$(get_config_value SSR_DNS_PORT)
 		recreate_ip4tables &>/dev/null
+		rc1=$?
 		recreate_ssr_rules &>/dev/null
-
+		rc2=$?
+		
+		if [ $rc1 -eq 0 ] && [ $rc2 -eq 0 ]; then
+			when_ok "УСПЕШНО"
+		else
+			when_bad "C ОШИБКАМИ"
+		fi
 	else
 		exit 1
 	fi
-	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1725,7 +1736,7 @@ EOF
 	# проходимся по каждому интерфейсу
 	# ВНИМАНИЕ! inface_list - все маленькими буквами!!!
 	count=1; delay=3
-	list_len=$(echo "${inface_list}" | wc -w)
+	#list_len=$(echo "${inface_list}" | wc -w)
 	for inface_cli in ${inface_list}; do
 #		переподключаем текущее соединение
 		reset_connection "${inface_cli}" "${delay}"
@@ -2212,7 +2223,7 @@ cmd_dns_crypt_on() {
 			ready "Шифрование DNS уже";	when_ok "ПОДКЛЮЧЕНО"
 		else
 			dns_crypt_port=$(get_config_value DNS_CRYPT_PORT)
-			dns_cache_enabled=$(get_config_value DNS_CACHE_ENABLED)
+			#dns_cache_enabled=$(get_config_value DNS_CACHE_ENABLED)
 			ready "Шифрование DNS"
 			{
 #				sed -i "s/\(^cache.=.\).*$/\1${dns_cache_enabled}/g" '/opt/etc/dnscrypt-proxy.toml'
@@ -2452,7 +2463,8 @@ cmd_add_one_host() {
 	
 	# Если  помимо этого домена существует еще доменные с одноименным тегом
 	# то делаем запрос на их доавление.
-	local _tmpfile=$(mktemp)
+	local _tmpfile
+	_tmpfile=$(mktemp)
 	echo "${host}" | grep -qE "${ip_filter}" || {
 		_get_same_tag_domains_missing_in_protection_list "${host}" | sed '/$/d' > "${_tmpfile}"
 	}
@@ -2784,8 +2796,11 @@ cmd_export_hosts() {
 		mkdir -p "$(dirname "${backup_name}")" && touch "${backup_name}" &> /dev/null
 	fi
 	ready "Сохраняем записи в файл ${YELLOW}${backup_name}${GREEN}..."
-	echo "${HOSTS_LIST}" > "${backup_name}"
-	[ $? = 0 ] && when_ok "СОХРАНЕНЫ" || when_bad "ОШИБКА"
+	if echo "${HOSTS_LIST}" > "${backup_name}" ; then
+		when_ok "СОХРАНЕНЫ" 
+	else	
+		when_bad "ОШИБКА"
+	fi	
 }
 
 
@@ -2820,7 +2835,7 @@ add_tag_section_to_protect_list() {
 $grep_list_to_add
 EOF
 
-		exist_into_list=$(echo -e "${exist_into_list}" | sed '/^$/d' | sed = | sed 'N;s/\n/. /g')
+		exist_into_list=$(echo -e "${exist_into_list}" | sed '/^$/d' | sed "=" | sed 'N;s/\n/. /g')
 		echo "${exist_into_list}"
 		print_line
 		read_ynq "Добавляем?" answer
@@ -2828,7 +2843,8 @@ EOF
             return 0
         elif [ "${answer}" = y ]; then
             print_line
-            local TMPFILE=$(mktemp)
+            local TMPFILE
+			TMPFILE=$(mktemp)
 			echo -e "${exist_into_list}" | sed 's/^[0-9]\{1,3\}\. \(.*\)/\1/g' | sed '/^$/d' > "${TMPFILE}"
             cmd_import_hosts "${TMPFILE}"
             rm "${TMPFILE}"
@@ -2857,7 +2873,7 @@ del_tag_section_to_protect_list() {
 		domains=$(get_tag_domain_list "${tag_selected}")
 	fi
 	grep_list_to_del=$(echo -e "${domains}" | sed '/^$/d' | sort -u | sed -e 's/^[[:space:]]*//; s/[[:space:]]*$//' | sed 's/\(.*\)/^\1$/g' )
-	exist_into_list=$(grep -oE "${grep_list_to_del}" "${KVAS_LIST_FILE}" | sed = | sed 'N;s/\n/. /g')
+	exist_into_list=$(grep -oE "${grep_list_to_del}" "${KVAS_LIST_FILE}" | sed "=" | sed 'N;s/\n/. /g')
 	
 	if [ -n "${exist_into_list}" ] ; then
 		echo -e "${exist_into_list}"

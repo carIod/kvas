@@ -1,3 +1,2 @@
 external-sources=true
-source-path=SCRIPTDIR
-shell=bash
+disable=SC1017,SC3010,SC3020,SC3037,SC3043,SC3045,SC3057,SC3060

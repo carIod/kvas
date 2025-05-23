@@ -12,6 +12,7 @@ APP_RELEASE=release-3-pre1
 #	Дата: 21/05/2022
 #	Лицензия: Apache License 2.0
 # ------------------------------------------------------------------------------------------
+# shellcheck disable=SC2034
 RED="\033[1;31m";
 GREEN="\033[1;32m";
 BLUE="\033[36m";
@@ -35,7 +36,7 @@ IPSET_TABLE_NAME=kvas
 SSR_NAME=ss-redir
 SSR_CMD=/opt/bin/${SSR_NAME}
 # ssr_run()(/opt/bin/sslocal --protocol redir -c /opt/etc/shadowsocks.json ${@}) )
-ssr_run()(/opt/bin/ss-redir -c /opt/etc/shadowsocks.json ${@}) 
+ssr_run()(/opt/bin/ss-redir -c /opt/etc/shadowsocks.json "${@}") 
 
 KVAS_CONF_FILE=/opt/etc/kvas.conf
 KVAS_LIST_FILE=/opt/etc/hosts.list
@@ -99,12 +100,16 @@ MINUS=9
 #-------------------------------------------------------------------------------
 # 
 #	Функция которая экранирует спец символы для sed
-# 
+# 			экранировщик для find-части
 #-------------------------------------------------------------------------------
-escape_sed() {
-	printf '%s' "$1" | sed -e 's/[][\/.^$*{}|]/\\&/g'
-}
+#escape_sed_find() { # не используется, не проверен возможны ошибки
+#	printf '%s' "$1" | sed -e 's/[][\/.^$*{}|]/\\&/g'
+#}
 
+# экранировщик для replace-части
+escape_sed_replace() {
+	printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/&/\\&/g' -e 's/[\/]/\\&/g'
+}
 
 is_dns_server_online(){
 #---------------------------------------------------------------------------------
@@ -355,7 +360,7 @@ pause()(read -r pause &> /dev/null)
 #
 # ------------------------------------------------------------------------------------------
 get_config_value() {
-	grep "${1}=" "${KVAS_CONF_FILE}" | cut -d'=' -f2
+	grep "^${1}=" "${KVAS_CONF_FILE}" | cut -d'=' -f2-
 }
 
 #APP_VERSION=$(get_config_value APP_VERSION)
