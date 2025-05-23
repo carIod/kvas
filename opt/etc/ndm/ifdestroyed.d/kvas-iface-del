@@ -14,6 +14,7 @@
 if [ "${1}" = "hook" ] ; then
 
 	# Подключаем библиотеку ndm_d
+	# shellcheck source=opt\bin\libs\ndm_d
 	. /opt/apps/kvas/bin/libs/ndm_d
 
 	#	В случае, если созданное подключение уже есть т в списке интерфейсов,

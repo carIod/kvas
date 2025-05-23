@@ -12,6 +12,7 @@
 # ------------------------------------------------------------------------------------------
 
 #	Подключаем библиотеку с функциями обработки ndm
+# shellcheck source=opt\bin\libs\ndm_d
 . /opt/apps/kvas/bin/libs/ndm_d
 
 tmp_file=/opt/tmp/sub_connection

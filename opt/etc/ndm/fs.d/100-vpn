@@ -25,6 +25,7 @@
 # ------------------------------------------------------------------------------
 
 if [ "$1" = "start" ] ; then
+	# shellcheck source=opt\etc\ndm\ndm
 	. /opt/apps/kvas/bin/libs/ndm
 #	logger -t "КВАС"  "Запущен файл ${0}"
 #	Создаем талицу IP адресов для  VPN подключения отличного от shadowsocks
