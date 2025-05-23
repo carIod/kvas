@@ -26,7 +26,7 @@
 # Пропускаем обработку, если тип подключения отличен от iptables
 # а сама талица отлична от mangle
 if [ "${type}" = "iptables" ] ; then
-
+	# shellcheck source=opt\etc\ndm\ndm
 	. /opt/apps/kvas/bin/libs/ndm
 	# Создаем таблицу kvas для ipset ip4
 	ip4set_create_table &> /dev/null

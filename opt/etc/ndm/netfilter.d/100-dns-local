@@ -16,6 +16,7 @@
 #       Лицензия: Apache License 2.0
 # ------------------------------------------------------------------------------
 if [ "${type}" = "iptables" ] && [ "${table}" = "nat" ] ; then
+	# shellcheck source=opt\etc\ndm\ndm
 	. /opt/apps/kvas/bin/libs/ndm
 #        logger -t "КВАС"  "Запущен файл ${0} [type=${type} и table=${table}]"
 	ip4_firewall_dns_rules_set &> /dev/null

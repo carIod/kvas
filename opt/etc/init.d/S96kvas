@@ -21,6 +21,7 @@
 
 case ${1} in
 	start|restart)
+		# shellcheck source=opt\bin\libs\vpn
 		. /opt/apps/kvas/bin/libs/vpn
 		cmd_kvas_init no
 		if has_ssr_enable; then

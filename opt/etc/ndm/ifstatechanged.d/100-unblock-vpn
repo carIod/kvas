@@ -1,5 +1,6 @@
 #!/bin/sh
 
+# shellcheck source=opt\bin\libs\ndm_d
 . /opt/apps/kvas/bin/libs/ndm_d
 
 if [ "${1}" = "hook" ] && [ "${change}" = "link" ] ; then

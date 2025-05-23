@@ -12,6 +12,7 @@
 # ------------------------------------------------------------------------------------------
 
 #	Подключаем библиотеку с функциями обработки ndm
+# shellcheck source=opt\bin\libs\ndm_d
 . /opt/apps/kvas/bin/libs/ndm_d
 
 local cli_inface="$(inface_cli)"

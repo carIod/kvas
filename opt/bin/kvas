@@ -1,10 +1,15 @@
 #!/bin/sh
-
+# shellcheck source=opt\bin\libs\vpn
 . /opt/apps/kvas/bin/libs/vpn
+# shellcheck source=opt\bin\libs\check
 . /opt/apps/kvas/bin/libs/check
+# shellcheck source=opt\bin\libs\update
 . /opt/apps/kvas/bin/libs/update
+# shellcheck source=opt\bin\libs\hosts
 . /opt/apps/kvas/bin/libs/hosts
+# shellcheck source=opt\bin\main\setup
 . /opt/apps/kvas/bin/main/setup
+# shellcheck source=opt\bin\libs\tags
 . /opt/apps/kvas/bin/libs/tags
 
 #------------------------------------------------------------------------------
@@ -117,7 +122,7 @@ case "${1}" in
 	vpn)
 		case "${2}" in
 			set) 			cmd_interface_change skip && cmd_vpn_iptable_reset &> /dev/null ;;
-			manual)         cmd_interface_set_manual && cmd_vpn_iptable_reset &> /dev/null ;;	
+			manual)         cmd_interface_set_manual "${3}" && cmd_vpn_iptable_reset &> /dev/null ;; # $3 = interface	
 			reset) 			cmd_vpn_iptable_reset && all_services_restart;;
 			net | guest)
 				case "${3}" in
