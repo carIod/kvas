@@ -8,7 +8,7 @@ WORK_DIR="$SCRIPT_DIR/../.."
 BUILD_DIR="$SCRIPT_DIR"
 OUTPUT_DIR="$WORK_DIR/ipk"
 DATA_DIR="$BUILD_DIR/data"
-VERSION_FILE="$WORK_DIR/opt/bin/libs/main"
+VERSION_FILE="$WORK_DIR/opt/bin/libs/env.sh"
 
 get_version_param() {
     grep -oP "(?<=^$1=)[^[:space:]]+" "$VERSION_FILE" 2>/dev/null | head -1 || echo ""

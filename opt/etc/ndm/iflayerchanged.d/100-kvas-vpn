@@ -15,7 +15,8 @@
 # shellcheck source=opt\bin\libs\ndm_d
 . /opt/apps/kvas/bin/libs/ndm_d
 
-local cli_inface="$(inface_cli)"
+local cli_inface
+cli_inface="$(get_config_value "INFACE_CLI")"
 
 if [ "${1}" = "hook" ] && echo "${id}" | grep -q "${cli_inface}"; then
 

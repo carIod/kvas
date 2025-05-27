@@ -18,11 +18,9 @@
 #
 # ------------------------------------------------------------------------------------------
 
+# shellcheck source=opt\bin\libs\env.sh
+. /opt/apps/kvas/bin/libs/env.sh
 # . /opt/apps/kvas/bin/libs/main
-
-# Файл с тегами
-TAGS_FILE=/opt/apps/kvas/etc/conf/tags.list
-KVAS_LIST_FILE=/opt/etc/hosts.list
 
 # ------------------------------------------------------------------------------------------
 #

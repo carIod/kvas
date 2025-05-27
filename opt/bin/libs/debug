@@ -11,7 +11,7 @@
 #	Дата создания: 22/05/2022
 #	Лицензия: Apache License 2.0
 # ------------------------------------------------------------------------------------------
-
+# shellcheck source=opt\bin\libs\main
 . /opt/apps/kvas/bin/libs/main
 
 # ------------------------------------------------------------------------------------------
@@ -78,9 +78,8 @@ dnsmasq_debug() {
 #
 # ------------------------------------------------------------------------------------------
 vpn_debug() {
-
-	vpn_cli_desc=$(get_current_vpn_interface "cli_desc")
-	vpn_cli=$(get_current_vpn_interface "cli")
+	vpn_cli_desc="$(get_config_value INFACE_CLI_DESC)"
+    vpn_cli="$(get_config_value INFACE_CLI)"
 	connected=$(is_vpn_interface_connected "${vpn_cli}")
 	ready "Состояние vpn соединения ${vpn_cli_desc}"
 	if [ "${connected}" = 'on' ]; then
@@ -174,7 +173,7 @@ dnscrypt_proxy_debug() {
 kvas_list_debug() {
 
 	result=$(cat < "${KVAS_LIST_FILE}" | sed 's/^\(.*\)\(#.*\)/\2/; s/^...../*****/; /^#/d; /^$/d')
-	echo_debug "Защищенный список /opt/etc/hosts.list (все записи)" "${result}"
+	echo_debug "Защищенный список ${KVAS_LIST_FILE} (все записи)" "${result}"
 }
 
 hide_num_letters(){
@@ -262,7 +261,7 @@ unblock_list_ipset_check(){
 			echo -e "Проверьте работу скрипта ${GREN}/opt/apps/kvas/bin/main/ipset${NOCL}"
 		fi
 	else
-		error "Отсутствует защищенный список /opt/etc/hosts.list"
+		error "Отсутствует защищенный список ${KVAS_LIST_FILE}"
 		echo -e "Добавьте домены в этот список командой ${GREN}kvas add <domain.ru>${NOCL}"
 	fi
 

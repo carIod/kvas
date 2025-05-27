@@ -51,7 +51,7 @@ version_os()(ndmc -c show version | grep version | head -1 | cut -d: -f2| tr -d 
 is_os_4()([[ "$(version_os)" =~ 4.* ]])
 
 #как пример гостевая сеть br3, которой необходимо обеспечить доступ к VPN
-inface_cli()(get_config_value "INFACE_CLI")
+#inface_cli()(get_config_value "INFACE_CLI")
 inface_ent()(get_config_value "INFACE_ENT")
 inface_gw4()(get_gw4 "$(inface_ent)")
 
@@ -61,10 +61,14 @@ guest_net()(echo "$(inface_guest_gw4 "${1}" | cut -d'.' -f1-3).0/24")
 # ------------------------------------------------------------------------------------------
 # проверка на доступность программного и аппаратного ускорения
 # ------------------------------------------------------------------------------------------
-fastnet_support()(curl -s localhost:79/rci/show/version | grep -q ppe)
+#fastnet_support()(curl -s localhost:79/rci/show/version | grep -q ppe)
 fast_hw_enabled()(is_os_4 && ask=enable || ask=false; ! curl -s localhost:79/rci/show/rc/ppe | grep hardware -C1 | grep -q ${ask})
 fast_sw_enabled()(is_os_4 && ask=enable || ask=false; ! curl -s localhost:79/rci/show/rc/ppe | grep software -C1 | grep -q ${ask})
-fastnet_enabled()(fast_hw_enabled || fast_sw_enabled)
+fastnet_enabled() {
+	return 0
+}
+
+#fastnet_enabled()(fast_hw_enabled || fast_sw_enabled)
 
 # ------------------------------------------------------------------------------------------
 #
@@ -344,7 +348,7 @@ set_guest_nets_rules(){
 # ------------------------------------------------------------------------------------------
 ip4_mark_vpn_network(){
 
-	if fastnet_enabled ; then
+	if fastnet_enabled ; then # принудительно всегда включено
 		#log_warning "${app}::Проверка пройдена -> программное и аппаратное ускорение ПОДКЛЮЧЕНО."
 		# Без отключения ускорителей fastnat и hwnat
 		ip4_firewall_vpn_mark &>/dev/null
@@ -713,7 +717,7 @@ ip4_firewall_rm_selected_guest_net(){
 # для всех гостевых интерфейсов
 ip4_firewall_flush_vpn_rules() {
 
-	if fastnet_enabled ; then
+	if fastnet_enabled ; then # принудительно всегда включено
 #		Если программное и аппаратное ускорение ПОДКЛЮЧЕНО
 		ip4_firewall_fastnet_vpn_prune &>/dev/null
 	else
@@ -785,7 +789,7 @@ route_del(){
 ip4_add_route_table(){
 
 
-	_inface_cli=$(inface_cli)
+	_inface_cli=$(get_config_value "INFACE_CLI")
 	mess="Создаем таблицу маршрутизации ID#${TABLE_ID} для '${_inface_cli}'."
 	log_warning "${mess}"
 	ready "${mess}"
@@ -869,9 +873,9 @@ ip4_rule_del_priority(){
 #
 # ------------------------------------------------------------------------------------------
 ip4set_create_table(){
-	if ipset list ${IPSET_TABLE_NAME} 2>&1 | grep -q 'name does not exist' ; then
+	if ! ipset list -n | grep -qx "${IPSET_TABLE_NAME}"; then
 		log_warning "IPset::Cоздаем таблицу с именем '${IPSET_TABLE_NAME}'."
-		ipset create ${IPSET_TABLE_NAME} hash:net family inet -exist timeout 86400&>/dev/null \
+		ipset create "${IPSET_TABLE_NAME}" hash:net family inet -exist timeout 86400&>/dev/null \
 		 || {
 			_err="Ошибка при создании таблицы с именем '${IPSET_TABLE_NAME}' для ipset"
 			error "[${FUNCNAME}] ${_err}"

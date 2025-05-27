@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# shellcheck source=opt\bin\libs\main
+. /opt/apps/kvas/bin/libs/main
 # shellcheck source=opt\bin\libs\debug
 . /opt/apps/kvas/bin/libs/debug
 # shellcheck source=opt\etc\ndm\ndm
@@ -99,12 +101,6 @@ update_time(){
 # Производим перезапуск подключения к интернету
 #
 # ------------------------------------------------------------------------------------------
-current_cli_vpn_interface() {
-        inface_entware=$(get_config_value INFACE_ENT)
-        inface=$(grep "${inface_entware}" "${INFACE_NAMES_FILE}"  | cut -d'|' -f1)
-        echo "${inface}"
-}
-
 reset_all_connection(){
 
 	ready "${prefix}Перезапускаем VPN и ISP соединения..."
@@ -114,7 +110,7 @@ reset_all_connection(){
 			# reset_ISP_connection
 			/opt/etc/init.d/S22shadowsocks start &>/dev/null
 		else
-			inface=$(current_cli_vpn_interface)
+			inface="$(get_config_value INFACE_CLI)"
 			cli_request="localhost:79/rci/interface/${inface}"
 #			curl -s -d '{"down":"true"}' "${cli_request}"  &>/dev/null
 #			reset_ISP_connection
@@ -252,8 +248,8 @@ cmd_help() {
 get_value_interface_field() {
 	id_cli_inface=${1}
 	field_name=${2}
-	sleep 1
-	curl -s "${INFACE_REQUEST}" | jq -r '.[] | select(.id=="'"${id_cli_inface}"'") | .'"${field_name}"
+	#sleep 1
+	curl -s "${INFACE_REQUEST%/}/${id_cli_inface}" | jq -r ".${field_name}"
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -712,7 +708,7 @@ cmd_adguardhome_off(){
 bridge_vpn_access_del() {
         guest_bridge_id="${1}"
 		_id=$(echo "${guest_bridge_id}" | sed 's/[a-z]//g')
-		cli_inface=$(curl -s "${INFACE_REQUEST}" | jq -r '.[] | select(.address != null and .id == "'"Bridge${_id}"'") | .description')	    
+		cli_inface=$(curl -s "${INFACE_REQUEST%/}/Bridge${_id}" | jq -r 'select(.address != null) | .description')
 		ready "Удаление гостевого интерфейса '${cli_inface}' завершено"
 		{
 
@@ -854,7 +850,7 @@ cmd_bridge_vpn_access_list() {
 				ent_inf=$(ip a | grep global | grep "${net_ip}" | sed 's/.* \(.*\)$/\1/')
 			else
 				desc=$(echo "${desc_full}" | sed 's|\"\(.*\)\".*|\1|')
-				ent_inf=$(cat /opt/etc/inface_equals | grep "${desc}" | cut -d'|' -f2)
+				ent_inf=$(grep -F "${desc}" "${INFACE_NAMES_FILE}" | cut -d'|' -f2)
 			fi
 			if cat < "${KVAS_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -qi "${ent_inf}"; then
 
@@ -916,7 +912,7 @@ bridge_access_add() {
         guest_bridge_id=${1}; 
 # set -xe
 		_id=$(echo "${guest_bridge_id}" | sed 's/[a-z]//g')
-		cli_inface=$(curl -s "${INFACE_REQUEST}" | jq -r '.[] | select(.address != null and .id == "'"Bridge${_id}"'") | .description')	    
+		cli_inface=$(curl -s "${INFACE_REQUEST}/Bridge${_id}" | jq -r 'select(.address != null) | .description')
 		ready "Добавление гостевого интерфейса '${cli_inface}' завершено"
 # set +xe
 #		если сеть уже есть в списке, то пропускаем добавление
@@ -1253,9 +1249,10 @@ dns_show() {
 # ------------------------------------------------------------------------------------------
 vpn_off() {
 #	ready "Интерфейс vpn отключен "
+	hook_dir=$(get_hook_dir);
 	[ -f "/opt/etc/ndm/netfilter.d/100-vpn-mark" ] && rm -f "/opt/etc/ndm/netfilter.d/100-vpn-mark"
-	[ -f /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn ] && rm -f /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
-	[ -f /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn ] && rm -f /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn
+	[ -f /opt/etc/ndm/${hook_dir}/100-kvas-vpn ] && rm -f /opt/etc/ndm/${hook_dir}/100-kvas-vpn
+	#[ -f /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn ] && rm -f /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn  # заменил на hook_dir
 	[ -f "/opt/etc/ndm/fs.d/100-vpn" ] && rm -f "/opt/etc/ndm/fs.d/100-vpn"
 	cmd_vpn_iptable_flush  &> /dev/null
 }
@@ -1265,8 +1262,8 @@ vpn_off() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_vpn_status() {
-        vpn_cli_desc=$(get_current_vpn_interface "cli_desc")
-        vpn_cli=$(get_current_vpn_interface "cli")
+        vpn_cli_desc="$(get_config_value INFACE_CLI_DESC)"
+        vpn_cli="$(get_config_value INFACE_CLI)"
         [ "${vpn_cli}" = 'shadowsocks' ] && inface="SHADOWSOCKS" || inface="${vpn_cli_desc} (${vpn_cli})"
         ready "Текущее VPN соединение: ${BLUE}${inface}${NOCL}"
         [ "$(is_vpn_interface_connected "${vpn_cli}")" = 'on' ] && when_ok "ПОДКЛЮЧЕНО" || when_bad "ОТКЛЮЧЕНО"
@@ -1279,64 +1276,76 @@ cmd_vpn_status() {
 #	$3 - описание интерфейса
 # ------------------------------------------------------------------------------------------
 config_interface_change() {
-	inface_entware="${1}"; inface_cli="${2}" inface_cli_desc="${3}"
+	#_inface_entware="${1}"; _inface_cli="${2}" _inface_cli_desc="${3}"
 	#cp /opt/apps/kvas/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
 	#chmod +x /opt/apps/kvas/bin/libs/ndm
-	set_config_value "INFACE_ENT" "${inface_entware}"
-	set_config_value "INFACE_CLI" "${inface_cli}"
-	set_config_value "INFACE_CLI_DESC" "${inface_cli_desc}"
+	set_config_value "INFACE_ENT" "${1}"
+	set_config_value "INFACE_CLI" "${2}"
+	set_config_value "INFACE_CLI_DESC" "${3}"
 }
 # ------------------------------------------------------------------------------------------
 #
 #	ВКЛючаем VPN клиента
 #	$1 - id интерфейса в entware
-#
+#	$2 - cli интерфейса
+#	$3 - description интерфейса
+#   вызывается только из функции switch_vpn_on
 # ------------------------------------------------------------------------------------------
 vpn_on() {
 
 	inface_entware="${1}"
-	inface_cli=$(awk -F'|' -v val="${inface_entware}" '$2 == val { print $1; exit }' "${INFACE_NAMES_FILE}")
-	inface_cli_desc=$(awk -F'|' -v val="${inface_entware}" '$2 == val { print $3; exit }' "${INFACE_NAMES_FILE}")
+	_inface_cli="${2}"
+	_inface_cli_desc="${3}"
 
-	ready "Интерфейс ${inface_cli_desc} подключен "
+	ready "Интерфейс ${_inface_cli_desc} подключен "
 	{
 
-		cp "/opt/apps/kvas/etc/ndm/fs.d/100-vpn" "/opt/etc/ndm/fs.d/100-vpn"
-		chmod +x "/opt/etc/ndm/fs.d/100-vpn"
-	#	Производим замену в конфигурационном файле основных значения интерфейсов
-		config_interface_change "${inface_entware}" "${inface_cli}" "${inface_cli_desc}"
+		ln -sf "/opt/apps/kvas/etc/ndm/fs.d/100-vpn" "/opt/etc/ndm/fs.d/100-vpn"
+		#chmod +x "/opt/etc/ndm/fs.d/100-vpn"
 
-		cp "/opt/apps/kvas/etc/ndm/netfilter.d/100-vpn-mark" "/opt/etc/ndm/netfilter.d/100-vpn-mark"
-		chmod +x "/opt/etc/ndm/netfilter.d/100-vpn-mark"
+	#	Производим замену в конфигурационном файле основных значения интерфейсов
+	# это лишнее только что в switch_vpn_on была замена
+	#	config_interface_change "${inface_entware}" "${_inface_cli}" "${_inface_cli_desc}"  
+
+		ln -sf "/opt/apps/kvas/etc/ndm/netfilter.d/100-vpn-mark" "/opt/etc/ndm/netfilter.d/100-vpn-mark"
+		#chmod +x "/opt/etc/ndm/netfilter.d/100-vpn-mark"
 
 #		Если версия фирменной оболочки равно или больше 4.0,
 #		то применяем механизм iflayerchanged.d, если нет, то ifstatechanged.d
 		hook_dir=$(get_hook_dir)
-		cp "/opt/apps/kvas/etc/ndm/${hook_dir}/100-kvas-vpn" "/opt/etc/ndm/${hook_dir}/100-kvas-vpn"
-		chmod +x "/opt/etc/ndm/${hook_dir}/100-kvas-vpn"
+		ln -sf "/opt/apps/kvas/etc/ndm/${hook_dir}/100-kvas-vpn" "/opt/etc/ndm/${hook_dir}/100-kvas-vpn"
+		#chmod +x "/opt/etc/ndm/${hook_dir}/100-kvas-vpn"
 
-		state=$(get_value_interface_field "${inface_cli}" state)
+		state=$(get_value_interface_field "${_inface_cli}" state)
 
-		if [ "${state}" = 'down' ]; then
-			curl -s -d '{"up":"true"}' "${INFACE_PART_REQUEST}/${inface_cli}" &> /dev/null
-		fi
-		sleep 2
-#		connected=$(get_value_interface_field "${inface_cli}" connected)
-		connected=$(get_value_interface_field "${inface_cli}" state)
-
-#		if [ "${connected}" = 'no' ]; then
-		if [ "${connected}" = 'down' ]; then
-
-			when_bad "С ОШИБКАМИ"
-			error "Возникла ошибка при подключении интерфейса ${inface_entware}!"
-			error "Проверьте доступность сервера и настройки клиента!"
-			exit 1
+		if [ -z "${state}" ] || [ "${state}" = "null" ]; then
+			if ! [ "${_inface_cli}" = "manual" ]; then
+				echo "Интерфейс ${_inface_cli} не существует" >&2
+				exit 1
+			fi			
 		else
-			recreate_ip4tables
-			recreate_vpn_rules
-		fi
+
+			if [ "${state}" = 'down' ]; then
+				curl -s -d '{"up":"true"}' "${INFACE_PART_REQUEST}/${_inface_cli}" &> /dev/null
+				sleep 2
+			fi
+	#		connected=$(get_value_interface_field "${_inface_cli}" connected)
+			connected=$(get_value_interface_field "${_inface_cli}" state)
+
+	#		if [ "${connected}" = 'no' ]; then
+			if [ "${connected}" = 'down' ]; then
+
+				when_bad "С ОШИБКАМИ"
+				error "Возникла ошибка при подключении интерфейса ${inface_entware}!"
+				error "Проверьте доступность сервера и настройки клиента!"
+				exit 1
+			else
+				recreate_ip4tables
+				recreate_vpn_rules
+			fi
+		fi	
 	} 1> /dev/null 2> "${ERROR_LOG_FILE}"
-	ready_status "${?}" "Возникла ошибка при подключении VPN соединения [${inface_cli_desc}]" "УСПЕШНО"
+	ready_status "${?}" "Возникла ошибка при подключении VPN соединения [${_inface_cli_desc}]" "УСПЕШНО"
 
 }
 
@@ -1639,7 +1648,7 @@ cmd_shadowsocks_local_port_change() {
 
 # ------------------------------------------------------------------------------------------
 #
-#	Отключаем shadowsocks клиента
+#	Включаем shadowsocks клиента
 #
 # ------------------------------------------------------------------------------------------
 shadowsocks_on() {
@@ -1739,14 +1748,14 @@ EOF
 	# ВНИМАНИЕ! inface_list - все маленькими буквами!!!
 	count=1; delay=3
 	#list_len=$(echo "${inface_list}" | wc -w)
-	for inface_cli in ${inface_list}; do
+	for _inface_cli in ${inface_list}; do
 #		переподключаем текущее соединение
-		reset_connection "${inface_cli}" "${delay}"
+		reset_connection "${_inface_cli}" "${delay}"
 		# получаем описание интерфейса
-		description=$(get_value_interface_field "${inface_cli}" description | sed 's|\/|\\/|g')
+		description=$(get_value_interface_field "${_inface_cli}" description | sed 's|\/|\\/|g')
 		# вставляем описание в файл /opt/etc/inface_equals
 		[ -n "${description}" ] && \
-			sed -i 's/\('"${inface_cli}"'.*\)/\1|'"${description}"'/' "${INFACE_NAMES_FILE}"
+			sed -i 's/\('"${_inface_cli}"'.*\)/\1|'"${description}"'/' "${INFACE_NAMES_FILE}"
 		count=$((count + 1))
 	done
 	rm -f "${HOOK_INFACE_FILE}"
@@ -1765,7 +1774,8 @@ cmd_scan_interface_list() {
 
 # ------------------------------------------------------------------------------------------
 #
-#	Получаем название интерфейса по номеру в списке в файле INFACE_NAMES_FILE
+#	Получаем название интерфейса по номеру в списке 
+#	в файле INFACE_NAMES_FILE		!!!необходимо переделать
 # 	$1 - номер строки в файле
 #	$2 - тип возвращаемых данных
 #		cli - id интерфейсов в CLI
@@ -1778,29 +1788,6 @@ get_vpn_interface_by_num() {
 
 	if [ "${type_data}" = entware ]; then _type=2; else _type=1; fi
 	cat < "${INFACE_NAMES_FILE}" | sed -n "${number}"'p' | cut -d'|' -f"${_type}"
-}
-
-# ------------------------------------------------------------------------------------------
-#
-#	Получаем название текущего интерфейса
-# 	$1 - тип интерфейса допустимы entware, cli, cli_desc
-#
-# ------------------------------------------------------------------------------------------
-get_current_vpn_interface() {
-	type="${1}"
-	if has_ssr_enable; then
-		inface='shadowsocks'
-	else
-		case "${type}" in
-			entware) col=2 ;;
-			cli) col=1 ;;
-			cli_desc) col=3 ;;
-			*) col=1 ;;
-		esac
-		inface_entware=$(get_config_value "INFACE_ENT")
-		inface=$(grep "${inface_entware}" "${INFACE_NAMES_FILE}" | cut -d'|' -f"${col}")
-	fi
-	echo "${inface}"
 }
 
 # ------------------------------------------------------------------------------------------
@@ -1826,7 +1813,7 @@ is_vpn_interface_connected() {
 # ------------------------------------------------------------------------------------------
 show_vpn_list() {
 
-	inface_entware=$(get_current_vpn_interface 'entware')
+	inface_entware="$(get_config_value INFACE_ENT)"
 	num=0;
 
 	while read -r line || [ -n "${line}" ]; do
@@ -1878,6 +1865,11 @@ show_interface_name_list_process(){
 	fi
 }
 
+# Запускается при выборе интерфейса через который установлен VPN
+#	$1 - inface_entware
+#	$2 - cli_inface
+#	$3 - cli_inface_desc
+#
 switch_vpn_on(){
 #	entware интерфейс
 	inface_entware="${1}"
@@ -1892,9 +1884,9 @@ switch_vpn_on(){
 		shadowsocks_on
 	else
 		shadowsocks_off &> /dev/null
-		vpn_on "${inface_entware}"
+		vpn_on "${inface_entware}" "${cli_inface}" "${cli_inface_desc}"
 	fi
-	[ "${is_install_stage}" = no ] && cmd_kvas_init "no" &> /dev/null
+	#[ "${is_install_stage}" = no ] && cmd_kvas_init "no" &> /dev/null
 
 	#------------------------------------------------------
 	# Если есть подключенные гостевые сети
@@ -1946,7 +1938,7 @@ select_vpn_interface() {
 			inface_entware=$(get_vpn_interface_by_num "${num_vpn_inface}")
 			cli_inface=$(awk -F'|' -v val="${inface_entware}" '$2 == val { print $1; exit }' "${INFACE_NAMES_FILE}")
 			cli_inface_desc=$(awk -F'|' -v val="${inface_entware}" '$2 == val { print $3; exit }' "${INFACE_NAMES_FILE}")
-			switch_vpn_on "${inface_entware}" "${cli_inface}" "${cli_inface_desc}" # сохраняем строку из файла INFACE_NAMES_FILE в файл конфигурации
+			switch_vpn_on "${inface_entware}" "${cli_inface}" "${cli_inface_desc}" # переключаемся на выбранный интерфейс
 
 			else
 				error "Число должно быть в пределах от 1 до ${total}"
@@ -2036,8 +2028,8 @@ cmd_interface_set_manual() {
 
 	# Если интерфейс есть в системе, пробуем найти его в INFACE_NAMES_FILE
 	cli_inface=$(awk -F'|' -v val="$manual_if" '$2 == val { print $1; exit }' "${INFACE_NAMES_FILE}")
-	cli_inface_desc=$(awk -F'|' -v val="${inface_entware}" '$2 == val { print $3; exit }' "${INFACE_NAMES_FILE}")
-	if [ -n "${cli_inface}" ]; then # интерфейс айден в файле значит ввели обычный интерфейс и cli_inface нам становится известным
+	if [ -n "${cli_inface}" ]; then # интерфейс найден в файле значит ввели обычный интерфейс и cli_inface нам становится известным
+		cli_inface_desc=$(awk -F'|' -v val="${inface_entware}" '$2 == val { print $3; exit }' "${INFACE_NAMES_FILE}")
 		switch_vpn_on "${manual_if}" "${cli_inface}" "${cli_inface_desc}"
 	else
 		switch_vpn_on "${manual_if}" "manual" "manual"

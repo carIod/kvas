@@ -40,7 +40,9 @@ if [ "${1}" = "hook" ]; then
 	fi
 
 #	Действия для всех остальных подключений
-	if [ "${id}" = "$(inface_cli)" ]; then
+	local cli_inface
+	cli_inface="$(get_config_value "INFACE_CLI")"
+	if [ "${id}" = "${cli_inface}" ]; then
 		case "${layer}-${level}" in
 			"ctrl-disabled" )
 				link_reboot &> /dev/null
