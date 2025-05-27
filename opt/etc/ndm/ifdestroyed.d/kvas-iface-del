@@ -13,13 +13,17 @@
 
 if [ "${1}" = "hook" ] ; then
 
-	# Подключаем библиотеку ndm_d
-	# shellcheck source=opt\bin\libs\ndm_d
-	. /opt/apps/kvas/bin/libs/ndm_d
+	# shellcheck source=opt\bin\libs\env.sh
+    . /opt/apps/kvas/bin/libs/env.sh
 
-	#	В случае, если созданное подключение уже есть т в списке интерфейсов,
-	#	то удаляем его из файла  /opt/etc/inface_equals
+	if [ -z "$id" ]; then
+        exit 1
+    fi
 
-    grep -q "${id}" "${iface_file}" && sed -i '/'"${id}"'/d' "${iface_file}"
-
+	# В случае, если созданное подключение уже есть в списке интерфейсов,
+	# удаляем его из файла /opt/etc/inface_equals
+	if grep -q "^${id}|" "${INFACE_NAMES_FILE}"; then
+    	escaped_id="${id//\//\\/}"  # Заменяет / на \/
+    	sed -i "/^${escaped_id}|/d" "${INFACE_NAMES_FILE}"
+	fi
 fi

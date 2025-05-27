@@ -10,8 +10,7 @@
 #	Дата создания: 13/09/2022
 #	Лицензия: Apache License 2.0
 # ------------------------------------------------------------------------------------------
-
-. /opt/apps/kvas/bin/libs/main
+# shellcheck source=opt\bin\libs\vpn
 . /opt/apps/kvas/bin/libs/vpn
 
 NOT_IN_TABLE=false
@@ -127,8 +126,8 @@ dnsmasq_check() {
 # ------------------------------------------------------------------------------------------
 vpn_check(){
 
-	vpn_cli_desc=$(get_current_vpn_interface "cli_desc")
-	vpn_cli=$(get_current_vpn_interface "cli")
+	vpn_cli_desc="$(get_config_value INFACE_CLI_DESC)"
+	vpn_cli="$(get_config_value INFACE_CLI)"
 #	если выбрано vpn подключение отличное от shadowsocks
 	if ! [ "${vpn_cli}" = 'shadowsocks' ]; then
 		connected=$(is_vpn_interface_connected "${vpn_cli}")
@@ -188,7 +187,7 @@ vpn_check(){
 #
 # ------------------------------------------------------------------------------------------
 shadowsocks_check() {
-	vpn_cli=$(get_current_vpn_interface "cli")
+	vpn_cli="$(get_config_value INFACE_CLI)"
 	if [ "${vpn_cli}" = 'shadowsocks' ]; then
 
 		ready "Состояние службы shadowsocks"
@@ -342,7 +341,7 @@ unblock_dnsmasq_check() {
 			when_bad "ОШИБКА"
 			print_line
 			if [ "$(cat < "${KVAS_LIST_FILE}" | wc -l)" -gt 0 ]; then
-				error "Белый список пуст - /opt/etc/hosts.list"
+				error "Белый список пуст - ${KVAS_LIST_FILE}"
 				warning "Добавьте туда хосты командой ${BLUE}kvas add host.com"
 			else
 				error "Проверьте работу скрипта/opt/apps/kvas/bin/main/dnsmasq"
@@ -373,7 +372,7 @@ cmd_adguard_check() {
 				when_bad "ОШИБКА"
 				print_line
 				if [ "$(cat < "${KVAS_LIST_FILE}" | wc -l)" -gt 0 ]; then
-					error "Белый список пуст - /opt/etc/hosts.list"
+					error "Белый список пуст - ${KVAS_LIST_FILE}"
 					warning "Добавьте в него хосты командой ${BLUE}kvas add имя_домена${NOCL}"
 				else
 					error "Проверьте работу скрипта/opt/apps/kvas/bin/main/adguard"

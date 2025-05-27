@@ -19,7 +19,7 @@
 #	Дата создания: 21/05/2022
 #	Лицензия: Apache License 2.0
 # ------------------------------------------------------------------------------
-
+# shellcheck source=opt\bin\libs\ipset
 . /opt/apps/kvas/bin/libs/ipset
 
 logger -t "КВАС" "Запущен файл ${0}"
@@ -47,7 +47,7 @@ while read -r line || [ -n "${line}" ]; do
 		add_host_by_iplist_to_ipset "${host}" || true
 	fi
 
-done < "${HOST_LIST}"
+done < "${KVAS_LIST_FILE}"
 
 #count=$(ipset list "${TABLE_NAME}" | grep -cE "^${IP_FILTER}")
 #logger -t "Общее число IP адресов в ipset составляет ${count} шт."

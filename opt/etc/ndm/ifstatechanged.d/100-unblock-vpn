@@ -27,7 +27,8 @@ if [ "${1}" = "hook" ] && [ "${change}" = "link" ] ; then
 	fi
 
 #	Действия для всех остальных подключений
-	if [ "${id}" = "$(inface_cli)" ]; then
+	inface_cli=$(get_config_value "INFACE_CLI")
+	if [ "$id" = "$inface_cli" ]; then
 		case "${connected}-${link}-${up}" in
 			"no-down-down" )
 				cmd_vpn_iptable_reset &> /dev/null

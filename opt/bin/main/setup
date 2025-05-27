@@ -1,5 +1,4 @@
 #!/bin/sh
-
 # shellcheck source=opt\bin\libs\main
 . /opt/apps/kvas/bin/libs/main
 # shellcheck source=opt\bin\libs\vpn
@@ -142,11 +141,13 @@ cmd_pause_kvas(){
 		ip4_rule_del_priority
 		
 		# Архивируем файлы механизма ndm
-		[ -f /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn ] && {
-			mv /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn ${KVAS_BACKUP_PATH}/100-kvas-vpn-layer
+		hook_dir=$(get_hook_dir); # iflayerchanged.d
+
+		[ -f /opt/etc/ndm/${hook_dir}/100-kvas-vpn ] && {
+			mv /opt/etc/ndm/${hook_dir}/100-kvas-vpn ${KVAS_BACKUP_PATH}/100-kvas-vpn
 		}
-		[ -f /opt/etc/ndm/iflayerchanged.d/kvas-ips-reset ] && {
-			mv /opt/etc/ndm/iflayerchanged.d/kvas-ips-reset ${KVAS_BACKUP_PATH}/kvas-ips-reset-layer
+		[ -f /opt/etc/ndm/${hook_dir}/kvas-ips-reset ] && {
+			mv /opt/etc/ndm/${hook_dir}/kvas-ips-reset ${KVAS_BACKUP_PATH}/kvas-ips-reset
 		}
 		[ -f /opt/etc/ndm/ifstatechanged.d/kvas-ips-reset ] && {
 			mv /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn ${KVAS_BACKUP_PATH}/100-kvas-vpn-state
@@ -187,11 +188,13 @@ cmd_unpause_kvas(){
 	ready "Восстанавливаем работу Кваса после паузы..."
 	{
 		#  Восстанавливаем из архива файлы механизма ndm
-		[ -f ${KVAS_BACKUP_PATH}/100-kvas-vpn-layer ] && {
-			mv ${KVAS_BACKUP_PATH}/100-kvas-vpn-layer /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn 
+		hook_dir=$(get_hook_dir); # iflayerchanged.d
+
+		[ -f ${KVAS_BACKUP_PATH}/100-kvas-vpn ] && {
+			mv ${KVAS_BACKUP_PATH}/100-kvas-vpn /opt/etc/ndm/${hook_dir}/100-kvas-vpn 
 		}
-		[ -f ${KVAS_BACKUP_PATH}/100-kvas-vpn-layer ] && {
-			mv ${KVAS_BACKUP_PATH}/100-kvas-vpn-layer /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn 
+		[ -f ${KVAS_BACKUP_PATH}/kvas-ips-reset ] && {
+			mv ${KVAS_BACKUP_PATH}/kvas-ips-reset /opt/etc/ndm/${hook_dir}/kvas-ips-reset
 		}
 		[ -f ${KVAS_BACKUP_PATH}/100-kvas-vpn-state ] && {
 			mv ${KVAS_BACKUP_PATH}/100-kvas-vpn-state /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
@@ -284,11 +287,11 @@ rm_package_files(){
 
 	if [ "${full}" = full ] ; then
 		ready "Удаляем архивные копии пакета Квас" && {
-			rm_file_or_dir 	/opt/etc/hosts.list
+			rm_file_or_dir 	"${KVAS_LIST_FILE}"
 			rm_file_or_dir 	/opt/tmp/adblock
 			rm_file_or_dir 	/opt/etc/kvas*
 			rm_file_or_dir 	/opt/etc/ads_exception.list
-			rm_file_or_dir 	/opt/etc/inface_equals
+			rm_file_or_dir 	"${INFACE_NAMES_FILE}"
 			rm_file_or_dir 	/opt/etc/cron.5mins/ipset.kvas
 			rm_file_or_dir	/opt/etc/shadowsocks.json
 			rm_file_or_dir	/opt/etc/init.d/S22shadowsocks
@@ -299,14 +302,15 @@ rm_package_files(){
 		} && when_ok || when_bad
 	fi
 	ready "Удаляем файлы пакета Квас" && {
+		hook_dir=$(get_hook_dir); # iflayerchanged.d
 		rm_file_or_dir	/opt/etc/ndm/fs.d/100-vpn
 		rm_file_or_dir	/opt/etc/ndm/fs.d/100-ipset
 		rm_file_or_dir	/opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
 		rm_file_or_dir	/opt/etc/ndm/netfilter.d/100-vpn-mark
 		rm_file_or_dir	/opt/etc/ndm/netfilter.d/100-proxy-redirect
 		rm_file_or_dir	/opt/etc/ndm/netfilter.d/100-dns-local
-		rm_file_or_dir	/opt/etc/ndm/iflayerchanged.d/100-kvas-vpn
-		rm_file_or_dir	/opt/etc/ndm/iflayerchanged.d/kvas-ips-reset
+		rm_file_or_dir	/opt/etc/ndm/${hook_dir}/100-kvas-vpn
+		rm_file_or_dir	/opt/etc/ndm/${hook_dir}/kvas-ips-reset
 		rm_file_or_dir	/opt/etc/ndm/ifcreated.d/kvas-iface-add
 		rm_file_or_dir	/opt/etc/ndm/ifdestroyed.d/kvas-iface-del
 		rm_file_or_dir	/opt/etc/ndm/wan.d/internet-up
@@ -427,10 +431,10 @@ cmd_install(){
 
 	ln -sf /opt/apps/kvas/bin/main/ipset /opt/etc/cron.5mins/ipset.kvas
 
-	[ -d "/opt/etc/ndm/iflayerchanged.d" ] || mkdir -p /opt/etc/ndm/iflayerchanged.d
+	#[ -d "/opt/etc/ndm/iflayerchanged.d" ] || mkdir -p /opt/etc/ndm/iflayerchanged.d	# от того что создали каталог, hook из него не будут выполнятся
 	hook_dir=$(get_hook_dir); home_dir=/opt/apps/kvas
 	ln -sf "${home_dir}/etc/ndm/${hook_dir}/100-kvas-vpn" "/opt/etc/ndm/${hook_dir}/100-kvas-vpn"
-	ln -sf "${home_dir}/etc/ndm/iflayerchanged.d/kvas-ips-reset" "/opt/etc/ndm/iflayerchanged.d/kvas-ips-reset"
+	ln -sf "${home_dir}/etc/ndm/${hook_dir}/kvas-ips-reset" "/opt/etc/ndm/${hook_dir}/kvas-ips-reset"
 	ln -sf "${home_dir}/etc/ndm/ifcreated.d/kvas-iface-add" "/opt/etc/ndm/ifcreated.d/kvas-iface-add"
 	ln -sf "${home_dir}/etc/ndm/ifdestroyed.d/kvas-iface-del" "/opt/etc/ndm/ifdestroyed.d/kvas-iface-del"
 
@@ -471,6 +475,7 @@ cmd_install(){
 
 		inface_entware=$(get_config_value INFACE_ENT)
 		cli_inface=$(get_config_value INFACE_CLI)
+		cli_inface_desc=$(get_config_value INFACE_CLI_DESC)
 
 #		Проверяем были ли внесены изменения в файл конфигурации
 		if [ -z "${inface_entware}" ] || [ -z "${cli_inface}" ] ; then
@@ -481,7 +486,7 @@ cmd_install(){
 			cmd_interface_change skip install
 		else
 #			Если изменений не было, то восстанавливаем соединение
-			switch_vpn_on "${inface_entware}" "${cli_inface}"
+			switch_vpn_on "${inface_entware}" "${cli_inface}" "${cli_inface_desc}"
 		fi
 
 	else
