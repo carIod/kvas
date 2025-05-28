@@ -146,12 +146,6 @@ cmd_pause_kvas(){
 		[ -f /opt/etc/ndm/${hook_dir}/100-kvas-vpn ] && {
 			mv /opt/etc/ndm/${hook_dir}/100-kvas-vpn ${KVAS_BACKUP_PATH}/100-kvas-vpn
 		}
-		[ -f /opt/etc/ndm/${hook_dir}/kvas-ips-reset ] && {
-			mv /opt/etc/ndm/${hook_dir}/kvas-ips-reset ${KVAS_BACKUP_PATH}/kvas-ips-reset
-		}
-		[ -f /opt/etc/ndm/ifstatechanged.d/kvas-ips-reset ] && {
-			mv /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn ${KVAS_BACKUP_PATH}/100-kvas-vpn-state
-		}
 		[ -f /opt/etc/ndm/netfilter.d/100-proxy-redirect ] && {
 			mv /opt/etc/ndm/netfilter.d/100-proxy-redirect ${KVAS_BACKUP_PATH}/100-proxy-redirect 
 		}
@@ -192,12 +186,6 @@ cmd_unpause_kvas(){
 
 		[ -f ${KVAS_BACKUP_PATH}/100-kvas-vpn ] && {
 			mv ${KVAS_BACKUP_PATH}/100-kvas-vpn /opt/etc/ndm/${hook_dir}/100-kvas-vpn 
-		}
-		[ -f ${KVAS_BACKUP_PATH}/kvas-ips-reset ] && {
-			mv ${KVAS_BACKUP_PATH}/kvas-ips-reset /opt/etc/ndm/${hook_dir}/kvas-ips-reset
-		}
-		[ -f ${KVAS_BACKUP_PATH}/100-kvas-vpn-state ] && {
-			mv ${KVAS_BACKUP_PATH}/100-kvas-vpn-state /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
 		}
 		[ -f ${KVAS_BACKUP_PATH}/100-proxy-redirect ] && {
 			mv ${KVAS_BACKUP_PATH}/100-proxy-redirect /opt/etc/ndm/netfilter.d/100-proxy-redirect  
@@ -431,10 +419,9 @@ cmd_install(){
 
 	ln -sf /opt/apps/kvas/bin/main/ipset /opt/etc/cron.5mins/ipset.kvas
 
-	#[ -d "/opt/etc/ndm/iflayerchanged.d" ] || mkdir -p /opt/etc/ndm/iflayerchanged.d	# от того что создали каталог, hook из него не будут выполнятся
+	#[ -d "/opt/etc/ndm/iflayerchanged.d" ] || mkdir -p /opt/etc/ndm/iflayerchanged.d	# от того что создали каталог, скрипты из него не будут выполнятся
 	hook_dir=$(get_hook_dir); home_dir=/opt/apps/kvas
 	ln -sf "${home_dir}/etc/ndm/${hook_dir}/100-kvas-vpn" "/opt/etc/ndm/${hook_dir}/100-kvas-vpn"
-	ln -sf "${home_dir}/etc/ndm/${hook_dir}/kvas-ips-reset" "/opt/etc/ndm/${hook_dir}/kvas-ips-reset"
 	ln -sf "${home_dir}/etc/ndm/ifcreated.d/kvas-iface-add" "/opt/etc/ndm/ifcreated.d/kvas-iface-add"
 	ln -sf "${home_dir}/etc/ndm/ifdestroyed.d/kvas-iface-del" "/opt/etc/ndm/ifdestroyed.d/kvas-iface-del"
 

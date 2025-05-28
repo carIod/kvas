@@ -10,6 +10,8 @@ if [ "${1}" = "hook" ] && [ "${change}" = "link" ] ; then
 		#	В случае отключения PPTP|L2TP соединения через основной интерфейс
 		#	проще говоря, в случае если подключение к интернету осуществляется
 		#	через PPTP|L2TP соединение и оно прервалось	- ставим флаг, в виде создания файла
+		tmp_file=/opt/tmp/sub_connection
+		
 		case "${connected}-${link}-${up}" in
 			"no-down-down" )
 				touch "${tmp_file}"
@@ -27,18 +29,18 @@ if [ "${1}" = "hook" ] && [ "${change}" = "link" ] ; then
 	fi
 
 #	Действия для всех остальных подключений
-	inface_cli=$(get_config_value "INFACE_CLI")
-	if [ "$id" = "$inface_cli" ]; then
+	cli_inface=$(get_config_value "INFACE_CLI")
+	if [ "$id" = "$cli_inface" ]; then
 		case "${connected}-${link}-${up}" in
+			"yes-up-up" )
+				link_reboot "${cli_inface}" &> /dev/null
+				logger -t "КВАС"  "Соединение ${id} установлено. Правила и таблицы пересозданы."
+			;;
 			"no-down-down" )
 				cmd_vpn_iptable_reset &> /dev/null
 #				в качестые экперимента
 #				link_down &> /dev/null
 				logger -t "КВАС"  "Соединение ${id} прервано. Правила и таблицы очищены."
-			;;
-			"yes-up-up" )
-				link_reboot &> /dev/null
-				logger -t "КВАС"  "Соединение ${id} установлено. Правила и таблицы пересозданы."
 			;;
 		esac
 	fi

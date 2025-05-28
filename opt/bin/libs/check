@@ -300,7 +300,7 @@ ipset_check() {
 	ready "Заполнение ipset таблицы скриптами КВАСа"
 	if ! [ -f "${KVAS_LIST_FILE}" ] || \
 	[ "$(grep -vcE '^$|#' "${KVAS_LIST_FILE}" )" -eq 0 ] ; then
-		cp /opt/apps/kvas/etc/conf/hosts.list "${KVAS_LIST_FILE}"
+		cp /opt/apps/kvas/etc/conf/kvas.list "${KVAS_LIST_FILE}"
 	fi
 	ip4set_create_table
 	sleep 3
