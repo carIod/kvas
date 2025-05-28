@@ -15,7 +15,7 @@ _ENV_INCLUDED=1
 # ------------------------------------------------------------------------------------------
 
 APP_VERSION=1.1.10
-APP_RELEASE=alpha.1
+APP_RELEASE=alpha.2
 
 APP_NAME_DESC=КВАС
 
@@ -25,7 +25,7 @@ SSR_NAME=ss-redir
 SSR_CMD=/opt/bin/${SSR_NAME}
 KVAS_CONF_FILE=/opt/etc/kvas.conf
 
-KVAS_LIST_FILE=/opt/etc/hosts.list
+KVAS_LIST_FILE=/opt/etc/kvas.list
 # Файл с тегами
 TAGS_FILE=/opt/apps/kvas/etc/conf/tags.list
 

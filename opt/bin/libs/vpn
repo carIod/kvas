@@ -1252,7 +1252,6 @@ vpn_off() {
 	hook_dir=$(get_hook_dir);
 	[ -f "/opt/etc/ndm/netfilter.d/100-vpn-mark" ] && rm -f "/opt/etc/ndm/netfilter.d/100-vpn-mark"
 	[ -f /opt/etc/ndm/${hook_dir}/100-kvas-vpn ] && rm -f /opt/etc/ndm/${hook_dir}/100-kvas-vpn
-	#[ -f /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn ] && rm -f /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn  # заменил на hook_dir
 	[ -f "/opt/etc/ndm/fs.d/100-vpn" ] && rm -f "/opt/etc/ndm/fs.d/100-vpn"
 	cmd_vpn_iptable_flush  &> /dev/null
 }

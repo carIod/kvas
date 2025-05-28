@@ -11,31 +11,48 @@
 #	Лицензия: Apache License 2.0
 # ------------------------------------------------------------------------------------------
 
-#	Подключаем библиотеку с функциями обработки ndm
-# shellcheck source=opt\bin\libs\ndm_d
-. /opt/apps/kvas/bin/libs/ndm_d
+if [ "${1}" = "hook" ]; then
 
-local cli_inface
-cli_inface="$(get_config_value "INFACE_CLI")"
+	# Подключаем библиотеку с функциями обработки ndm
+	# shellcheck source=opt\bin\libs\ndm_d
+	. /opt/apps/kvas/bin/libs/ndm_d
 
-if [ "${1}" = "hook" ] && echo "${id}" | grep -q "${cli_inface}"; then
+	tmp_file=/opt/tmp/sub_connection
 
-	case "${layer}-${level}" in
+	# Действия для подключений PPTP|L2TP, которое подключено к провайдеру
+	if [[ ${id} =~ 'PPTP|L2TP' ]] && is_cli_iface_global "${id}"; then
+		#	В случае отключения PPTP|L2TP соединения через основной интерфейс
+		#	проще говоря, в случае если подключение к интернету осуществляется
+		#	через PPTP|L2TP соединение и оно прервалось	- ставим флаг, в виде создания файла
+		case "${layer}-${level}" in
+			"ipv4-disabled" )
+				touch "${tmp_file}"
+			;;
+			"ipv4-running" )
+				[ -f "${tmp_file}" ] && {
+					# После отключения PPTP|L2TP (которое используется для подключения к провайдеру)
+					# и при наличии файла tmp_file - переустанавливаем ipset правила для восстановления
+					cmd_vpn_iptable_reset &> /dev/null
+					logger -t "КВАС"  "Соединение ${id} успешно подключено, правила восстановлены!"
+					rm -f "${tmp_file}"
+				}
+			;;
+		esac
+	fi
 
-#		Запускаем обработку при поднятии соединения
-		"ctrl-running")
-			cmd_vpn_iptable_reset &> /dev/null
-#			link_up &> /dev/null
-			logger -t "КВАС"  "Соединение ${id} успешно подключено."
-		;;
-
-#		Запускаем обработку при отключении соединении
-		"ctrl-disabled" )
-			link_reboot "${cli_inface}" &> /dev/null
-			logger -t "КВАС"  "Соединение ${id} успешно завершено."
-		;;
-
-	esac
-
+	#Действия для всех остальных подключений
+	cli_inface="$(get_config_value "INFACE_CLI")"
+	if [ "${id}" = "${cli_inface}" ]; then
+		case "${layer}-${level}" in
+			"ctrl-disabled" )
+				link_reboot "${cli_inface}" &> /dev/null
+				logger -t "КВАС"  "Соединение ${id} прервано. Правила и таблицы очищены."
+			;;
+			"ctrl-running" )
+				cmd_vpn_iptable_reset &> /dev/null
+				#link_up &> /dev/null
+				logger -t "КВАС"  "Соединение ${id} установлено. Правила и таблицы пересозданы."
+			;;
+		esac
+	fi
 fi
-
