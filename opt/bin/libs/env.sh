@@ -14,8 +14,8 @@ _ENV_INCLUDED=1
 #	Лицензия: Apache License 2.0
 # ------------------------------------------------------------------------------------------
 
-APP_VERSION=1.1.9
-APP_RELEASE=release-3-pre1
+APP_VERSION=1.1.10
+APP_RELEASE=alpha.1
 
 APP_NAME_DESC=КВАС
 
