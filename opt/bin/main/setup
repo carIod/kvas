@@ -290,15 +290,17 @@ rm_package_files(){
 		} && when_ok || when_bad
 	fi
 	ready "Удаляем файлы пакета Квас" && {
-		hook_dir=$(get_hook_dir); # iflayerchanged.d
 		rm_file_or_dir	/opt/etc/ndm/fs.d/100-vpn
 		rm_file_or_dir	/opt/etc/ndm/fs.d/100-ipset
+		rm_file_or_dir	/opt/etc/ndm/fs.d/15-kvas-start.sh
 		rm_file_or_dir	/opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
 		rm_file_or_dir	/opt/etc/ndm/netfilter.d/100-vpn-mark
 		rm_file_or_dir	/opt/etc/ndm/netfilter.d/100-proxy-redirect
 		rm_file_or_dir	/opt/etc/ndm/netfilter.d/100-dns-local
-		rm_file_or_dir	/opt/etc/ndm/${hook_dir}/100-kvas-vpn
-		rm_file_or_dir	/opt/etc/ndm/${hook_dir}/kvas-ips-reset
+		rm_file_or_dir	/opt/etc/ndm/iflayerchanged.d/100-kvas-vpn
+		rm_file_or_dir	/opt/etc/ndm/iflayerchanged.d/kvas-ips-reset
+		rm_file_or_dir	/opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
+		rm_file_or_dir	/opt/etc/ndm/ifstatechanged.d/kvas-ips-reset
 		rm_file_or_dir	/opt/etc/ndm/ifcreated.d/kvas-iface-add
 		rm_file_or_dir	/opt/etc/ndm/ifdestroyed.d/kvas-iface-del
 		rm_file_or_dir	/opt/etc/ndm/wan.d/internet-up

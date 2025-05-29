@@ -63,9 +63,8 @@ done
 # Копирование отдельных файлов с правами
 declare -A etc_files=(
     ["$WORK_DIR/opt/etc/init.d/S96kvas"]="$DATA_DIR/opt/etc/init.d/S96kvas"
-    ["$WORK_DIR/opt/etc/ndm/fs.d/100-ipset"]="$DATA_DIR/opt/etc/nmd/fs.d/100-ipset"
+    ["$WORK_DIR/opt/etc/ndm/fs.d/15-kvas-start.sh"]="$DATA_DIR/opt/etc/nmd/fs.d/15-kvas-start.sh"
     ["$WORK_DIR/opt/etc/ndm/netfilter.d/100-dns-local"]="$DATA_DIR/opt/etc/nmd/netfilter.d/100-dns-local"
-    ["$WORK_DIR/opt/etc/ndm/netfilter.d/100-proxy-redirect"]="$DATA_DIR/opt/etc/nmd/netfilter.d/100-proxy-redirect"
 )
 
 for src in "${!etc_files[@]}"; do

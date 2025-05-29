@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck source=opt\bin\libs\ndm
 . /opt/apps/kvas/bin/libs/ndm
 # ------------------------------------------------------------------------------------------
 #
