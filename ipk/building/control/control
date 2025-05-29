@@ -1,13 +1,13 @@
 Package: kvas
-Version: 1.1.9_release-3-pre1
+Version: 1.1.10_alpha.3
 Depends: libc, libssp, librt, libpthread, libpcre, jq, curl, knot-dig, nano-full, cron, bind-dig, dnsmasq-full, ipset, dnscrypt-proxy2, iptables, shadowsocks-libev-ss-redir, shadowsocks-libev-config
 Source: /home/zeleza/kvas
 SourceName: kvas
 Section: utils
-SourceDateEpoch: 1748335480
+SourceDateEpoch: 1748492159
 URL: no
 Architecture: all
-Installed-Size: 1414301
+Installed-Size: 1410799
 Description:  Данный пакет позволяет осуществлять контроль и поддерживать в актуальном состоянии
  защищенный список хостов или "Белый список". При обращении к любому хосту из
  этого списка, весь трафик будет идти через любое VPN или через Shadowsocks соединение,

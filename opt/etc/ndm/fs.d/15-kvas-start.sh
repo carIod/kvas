@@ -12,7 +12,7 @@
 #
 # ------------------------------------------------------------------------------
 if [ "${1}" = "start" ] ; then
-	# shellcheck source=opt\etc\ndm\ndm
+	# shellcheck source=opt\bin\libs\ndm
 	. /opt/apps/kvas/bin/libs/ndm
 #	logger -t "КВАС" "Запущен файл ${0}"
 	ip4set_create_table &> /dev/null

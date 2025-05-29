@@ -81,7 +81,7 @@ cmd_vpn_iptable_reset() {
 		cmd_vpn_iptable_flush  &> /dev/null
 
 #		В качестве экперимента !!!!!
-		ip4set_create_table &> /dev/null
+		#ip4set_create_table &> /dev/null    # данная таблица должна создаваться при старте файловой системы скрипт 15-kvas-start.sh
 
 		ip4_add_route_table &> /dev/null
 	#	Устанавливаем приоритет таблицы
@@ -137,7 +137,7 @@ ip4_flush_cache(){
 # ------------------------------------------------------------------------------------------
 ip4_firewall_dns_rules_set(){
 
-	interface=$(get_local_inface)
+	#interface=$(get_local_inface)
 	local_ip=$(get_router_ip)
 
 	ip4tables PREROUTING -t nat -p udp --dport ${DNS_PORT} -j DNAT --to "${local_ip}:${DNS_PORT}" &>/dev/null
@@ -837,7 +837,7 @@ ip4_rule_set_priority(){
 
 	if ! ip rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID}"  ; then
 		log_warning "IPv4::Устанавливаем приоритет таблицы ID#${TABLE_ID} в значение ${PRIORITY}"
-		ip4set_create_table
+		#ip4set_create_table # данная таблица должна создаваться при старте файловой системы скрипт 15-kvas-start.sh
 		if ip rule add fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID} priority ${PRIORITY} 2>&1 | grep -vq 'File exists'; then
 				error "[${FUNCNAME}] Ошибка при установке приоритета таблицы с ID#${TABLE_ID} в значение ${PRIORITY}."
 		fi
@@ -875,7 +875,7 @@ ip4_rule_del_priority(){
 ip4set_create_table(){
 	if ! ipset list -n | grep -qx "${IPSET_TABLE_NAME}"; then
 		log_warning "IPset::Cоздаем таблицу с именем '${IPSET_TABLE_NAME}'."
-		ipset create "${IPSET_TABLE_NAME}" hash:net family inet -exist timeout 86400&>/dev/null \
+		ipset create "${IPSET_TABLE_NAME}" hash:net family inet -exist timeout 86400 &>/dev/null \
 		 || {
 			_err="Ошибка при создании таблицы с именем '${IPSET_TABLE_NAME}' для ipset"
 			error "[${FUNCNAME}] ${_err}"

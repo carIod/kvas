@@ -2130,12 +2130,9 @@ refresh_dnsmasq_ipset_table(){
 #
 # ------------------------------------------------------------------------------------------
 get_dns_crypt_status() {
-	crypt_port=$(get_config_value DNS_CRYPT_PORT)
-	if [ -f '/opt/sbin/dnscrypt-proxy' ] &&
-		cat < '/opt/apps/kvas/bin/main/ipset' | grep '@' | grep -q "${crypt_port}" &&
-		cat < '/opt/apps/kvas/bin/main/dnsmasq' | grep -q 'server' &&
-		netstat -tulnp 2> /dev/null | grep -q dnscrypt; then
-
+	# отправляется ли DNS сайтов вне списка в DNSCrypt
+	port=$(get_config_value DNS_CRYPT_PORT)
+	if grep -Fq "server=127.0.0.1#${port}" "${DNSMASQ_CONFIG}" ; then
 		echo on
 	else
 		echo off

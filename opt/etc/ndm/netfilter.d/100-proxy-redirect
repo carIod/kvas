@@ -20,7 +20,7 @@
 
 # Shadowsocks+
 if [ "${type}" = "iptables" ] && echo "${table}" | grep -qE 'nat|mangle' ; then
-	# shellcheck source=opt\etc\ndm\ndm
+	# shellcheck source=opt\bin\libs\ndm
 	. /opt/apps/kvas/bin/libs/ndm
 	proxy_port=$(get_config_value SSR_DNS_PORT)
 	interface=$(get_local_inface)
