@@ -7,6 +7,11 @@
 # 	Данный файл служит для
 #	В случае, если созданное подключение еще нет в списке интерфейсов,
 #	то добавляем его в файл /opt/etc/inface_equals "${INFACE_NAMES_FILE}"
+#   только когда поле global = false
+#   если поменялся description то изменяет строку
+#
+#   Структура файла:
+#   id|system_name|type|description
 # ------------------------------------------------------------------------------------------
 #	Разработчик: kvas@zeleza.ru
 #	Дата: 18/01/2024
@@ -14,23 +19,38 @@
 # ------------------------------------------------------------------------------------------
 
 if [ "${1}" = "hook" ] ; then
-    # Подключаем глобальные параметры
-	# shellcheck source=opt\bin\libs\env.sh
-    . /opt/apps/kvas/bin/libs/env.sh
-
     # Проверка обязательных переменных
     if [ -z "$id" ] || [ -z "$system_name" ]; then
         exit 1
     fi
 
+    # Подключаем глобальные параметры
+	# shellcheck source=opt\bin\libs\env.sh
+    . /opt/apps/kvas/bin/libs/env.sh
+
+    get_ssr_entware_interface(){ # дублируется в файле vpn но не тащить же весь файл vpn из за этой строчки
+        ip -4 a | grep "${SSR_ENTWARE_TEMPL}" | head -n1 | cut -d': ' -f2 | tr -d ' '
+    }    
+
     json=$(curl -s "http://localhost:79/rci/show/interface/${id}")
 
     if [ -n "$json" ]; then
-        global=$(echo "$json" | jq -r '.global // empty')
+        global=$(echo "$json" | jq -r 'if has("global") and .global == false then "false" else empty end')
         if [ "$global" = "false" ]; then
-            if ! grep -q "${id}" "${INFACE_NAMES_FILE}"; then
-                desc=$(echo "$json" | jq -r '.description')
-                echo "${id}|${system_name}|${desc}" >> "${INFACE_NAMES_FILE}"
+            if [ ! -f "${INFACE_NAMES_FILE}" ]; then
+                echo "shadowsocks|$(get_ssr_entware_interface)|shadowsocks|Shadowsocks" > "${INFACE_NAMES_FILE}"
+            fi
+            current_line=$(grep "^${id}|" "${INFACE_NAMES_FILE}")
+            desc=$(echo "$json" | jq -r '.description')
+            type=$(echo "$json" | jq -r '.type')
+            if [ -z "$current_line" ]; then
+                echo "${id}|${system_name}|${type}|${desc}" >> "${INFACE_NAMES_FILE}"
+            else
+                current_desc=$(echo "$current_line" | cut -d'|' -f4)
+                if [ "$current_desc" != "$desc" ]; then
+                    safe_desc=$(printf '%s\n' "$desc" | sed 's/[&/\]/\\&/g')
+                    sed -i "s#^${id}|.*#${id}|${system_name}|${type}|${safe_desc}#" "${INFACE_NAMES_FILE}"
+                fi
             fi
         fi
     fi

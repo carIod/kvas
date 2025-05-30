@@ -47,7 +47,7 @@ host_vpn_pass_check() {
 
 	ready "Проверка домена ${domain}"
 	print_line
-	extern_ip=$(get_external_ip)
+	#extern_ip=$(get_external_ip)
 	ip_list=$(get_iplist_from_domain "${domain}" | tr '\n' ' ' )
 	for adr in ${ip_list::-1}; do
 		${IPSET} list ${IPSET_TABLE_NAME} | grep -q "${adr}" || ${IPSET} -exist add ${IPSET_TABLE_NAME} "${adr}"
