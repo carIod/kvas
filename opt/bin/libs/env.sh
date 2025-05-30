@@ -15,12 +15,12 @@ _ENV_INCLUDED=1
 # ------------------------------------------------------------------------------------------
 
 APP_VERSION=1.1.10
-APP_RELEASE=alpha.3
+APP_RELEASE=alpha.4
 
 APP_NAME_DESC=КВАС
 
 KVAS_BACKUP_PATH=/opt/etc/.kvas/backup
-IPSET_TABLE_NAME=kvas
+IPSET_TABLE_NAME=KVAS_UNBLOCK
 SSR_NAME=ss-redir
 SSR_CMD=/opt/bin/${SSR_NAME}
 KVAS_CONF_FILE=/opt/etc/kvas.conf
