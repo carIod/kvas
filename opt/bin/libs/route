@@ -1,70 +1,80 @@
 #!/bin/sh
 
+# shellcheck source=opt\bin\libs\main
 . /opt/apps/kvas/bin/libs/main
 # ------------------------------------------------------------------------------------------
-#
-# 	 Записываем данные маршрута по умолчанию в файл конфигурации
-#
-## ------------------------------------------------------------------------------------------
-#ip4_write_route_default_to_config(){
-#	route_default=$(ip route list main)
-#	gateway=$(echo "${route_default}" | cut -d' ' -f3)
-#	interface=$(echo "${route_default}" | cut -d' ' -f5)
-#	address=$(get_external_ip)
-#	mask=$(route | grep "^$(echo "${address}" | cut -d'.' -f1-3)" | grep UG | tr -s ' ' | cut -d' ' -f3)
-#	set_config_value GW_DEFAULT "${gateway}"
-#	set_config_value ETH_DEFAULT "${interface}"
-#	set_config_value MASK_DEFAULT "${mask}"
-#	set_config_value EXTERNAL_IP "${address}"
-#}
-
 
 # ------------------------------------------------------------------------------------------
 #
-# 	Устанавливаем маршрут по умолчанию из переданных аргументов
+# 	ПРОЕКТ КВАС
 #
+#	Разработчик: mail@zeleza.ru
+#	Лицензия: Apache License 2.0
 # ------------------------------------------------------------------------------------------
-ip4_up_net_default(){
+# ------------------------------------------------------------------------------------------
+#	Модификация: carIod
+#	Дата: 21/05/2025
+# ------------------------------------------------------------------------------------------
+ROUTE_TABLE_ID=1001
+FWMARK_NUM=0xd1000
+PRIORITY_RULE=1778 # при изменении необходима перезагрузка роутера, либо вручную удалить старое условие перехода в ip rule
+IPSET_TTL=3600
 
-	interface=${1}; address=${2}; mask=${3}; gateway=${4};
-
-	if [ -z "${gateway}" ] || [ -z "${interface}" ] ||[ -z "${address}" ] || [ -z "${mask}" ]; then
-		log_error "ip4_up_net_default::Отсутствуют аргументы для запуска."
-		exit 1
-	else
-		{
-			ifconfig ${interface} down
-			ifconfig ${interface} ${address} netmask ${mask} up
-			route add default gw ${gateway} ${interface}
-
-		} 2> "${ERROR_LOG_FILE}"
-		when_error "${?}" "ip4_up_net_default::Ошибка при установке подключения к интернету: ip=${address}, mask=${mask}, gw=${gateway}, interface=${interface}"
-	fi
+ip4__route__flush_cache() {
+	log_warning 'Очистка кэша маршрутизации'
+	/opt/sbin/ip route flush cache &>/dev/null
 }
 
-# ------------------------------------------------------------------------------------------
-#
-# 	Устанавливаем маршрут по умолчанию из данных файла конфигурации
-#
-# ------------------------------------------------------------------------------------------
-#ip4_up_net_default_from_config(){
-#
-#	gateway=$(get_config_value GW_DEFAULT)
-#	mask=$(get_config_value MASK_DEFAULT)
-#	interface=$(get_config_value ETH_DEFAULT)
-#	address=$(get_config_value EXTERNAL_IP)
-#
-#	ip4_up_net_default "${interface}" "${address}" "${mask}" "${gateway}"
-#
-#}
+# удаление таблицы маршрутизации ${ROUTE_TABLE_ID}
+ip4__route__del_route_table() {
+	log_warning "IPv4::Производим очистку записей таблицы маршрутизации ID#${ROUTE_TABLE_ID} и удалим ее."
+	ip route flush table "${ROUTE_TABLE_ID}" &>/dev/null
+	ip rule del table "${ROUTE_TABLE_ID}"  &>/dev/null
+}
+
+# если НЕТ правила перехода в таблицу ROUTE_TABLE_ID маршрутизации то добаляет его
+ip4__route__add_rule(){
+	# проверяем что правила перехода в таблицу ROUTE_TABLE_ID не существует
+	if ! ip rule show | grep -q "fwmark ${FWMARK_NUM}/${FWMARK_NUM} lookup ${ROUTE_TABLE_ID}"  ; then
+		log_warning "IPv4::Устанавливаем приоритет таблицы ID#${ROUTE_TABLE_ID} в значение ${PRIORITY_RULE}"
+
+		if ip rule add fwmark ${FWMARK_NUM}/${FWMARK_NUM} lookup ${ROUTE_TABLE_ID} priority ${PRIORITY_RULE} 2>&1 | grep -vq 'File exists'; then
+			error "[${FUNCNAME}] Ошибка при установке приоритета таблицы с ID#${ROUTE_TABLE_ID} в значение ${PRIORITY_RULE}."
+		fi	
+		#if ip route add default dev $(inface_ent) table ${ROUTE_TABLE_ID} 2>&1 | grep -vq 'File exists' ; then
+		#		error "[${FUNCNAME}] Ошибка при установке маршрута по умолчанию таблицы с ID#${ROUTE_TABLE_ID}."
+		#fi
+	fi
+}	
+
+# если ЕСТЬ правило перехода в таблицу ROUTE_TABLE_ID маршрутизации то удаляет его и сбрасывает кэш
+ip4__route__del_rule(){
+	if ip rule show | grep -q "fwmark ${FWMARK_NUM}/${FWMARK_NUM} lookup ${ROUTE_TABLE_ID}"  ; then
+		log_warning "IPv4::Обнуляем приоритет таблицы ID#${ROUTE_TABLE_ID}"
+		ip rule del fwmark ${FWMARK_NUM}/${FWMARK_NUM} lookup ${ROUTE_TABLE_ID} priority ${PRIORITY_RULE} &>/dev/null
+#		when_error "${?}" " ${IPv4} Обнуление приоритета таблицы с ID#${ROUTE_TABLE_ID}"
+	fi
+	ip4__route__flush_cache &>/dev/null
+}
+
 
 # ------------------------------------------------------------------------------------------
 #
-# 	Проверяем маршрут по умолчанию и если он отсутствует устанавливаем его
-#
+# 	IPset::Cоздаем таблицу с именем '${IPSET_TABLE_NAME}'
+#hash:net:		Указывает тип набора — хэш-таблица для хранения сетей (подсетей или LilllI4 или IP-адресов). Этот тип оптимизирован для быстрого поиска и работы с сетевыми адресами.
+#family inet: 	Указывает, что набор предназначен для IPv4-адресов (inet — это IPv4, для IPv6 используется inet6).
+#-exist: 		Если набор с таким именем уже существует, команда не вызовет ошибку
+#timeout 86400:	Устанавливает время жизни записей в наборе — 86400 секунд (24 часа). По истечении этого времени записи автоматически удаляются из набора, если не обновляются.
 # ------------------------------------------------------------------------------------------
-#ip4_route_get_route_default(){
-#	ip route list | grep -q default || {
-#		ip4_up_net_default
-#	}
-#}
+ip4__route__ipset_create_table(){
+	if ipset list -n | grep -qx "${IPSET_TABLE_NAME}"; then
+        return 0
+    fi
+	log_warning "IPset::Cоздаем таблицу с именем '${IPSET_TABLE_NAME}'."
+	if ! ipset create "${IPSET_TABLE_NAME}" hash:net family inet -exist timeout "${IPSET_TTL}" &>/dev/null; then
+		error "[${FUNCNAME}] Ошибка при создании таблицы с именем '${IPSET_TABLE_NAME}' для ipset"
+	fi
+
+}
+
+

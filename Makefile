@@ -11,7 +11,7 @@ define Package/kvas
 	SECTION:=utils
 	CATEGORY:=Keendev
 	# DEPENDS:=+jq +curl +knot-dig +libpcre +nano-full +cron +bind-dig +dnsmasq-full +ipset +dnscrypt-proxy2 +iptables +libopenssl +shadowsocks-rust   
-	DEPENDS:=+libpcre +jq +curl +knot-dig +nano-full +cron +bind-dig +dnsmasq-full +ipset +dnscrypt-proxy2 +iptables +shadowsocks-libev-ss-redir +shadowsocks-libev-config
+	DEPENDS:=+libpcre +jq +curl +knot-dig +nano-full +cron +bind-dig +dnsmasq-full +ipset +dnscrypt-proxy2 +iptables +shadowsocks-libev-ss-redir +shadowsocks-libev-config +conntrack
 	URL:=no
 	TITLE:=VPN клиент для обработки запросов по внесению хостов в белый список.
 	PKGARCH:=all
@@ -38,11 +38,8 @@ define Package/kvas/install
 	$(INSTALL_DIR) $(1)/opt/etc/ndm/fs.d
 	$(INSTALL_DIR) $(1)/opt/etc/ndm/netfilter.d
 	$(INSTALL_DIR) $(1)/opt/apps/kvas
-
-	$(INSTALL_BIN) opt/etc/ndm/fs.d/15-kvas-start.sh $(1)/opt/etc/ndm/fs.d
-	$(INSTALL_BIN) opt/etc/ndm/netfilter.d/100-dns-local $(1)/opt/etc/ndm/netfilter.d
-
-	$(INSTALL_BIN) opt/etc/init.d/S96kvas $(1)/opt/etc/init.d
+	
+	$(INSTALL_BIN) opt/etc/init.d/S55kvas $(1)/opt/etc/init.d
 	$(CP) ./opt/. $(1)/opt/apps/kvas
 endef
 

@@ -136,8 +136,8 @@ vpn_check(){
 			when_ok "ПОДКЮЧЕНО"
 
 			ready "Таблица VPN маршрутов id=1001"
-			/opt/etc/ndm/fs.d/100-vpn start
-			if /opt/sbin/ip route show table 1001 | grep -qv 'default'; then
+			#/opt/etc/ndm/fs.d/100-vpn start
+			if /opt/sbin/ip route show table 1001 | grep -q 'default'; then
 				when_ok "ЗАПОЛНЕНА"
 
 				ready "Таблица VPN маршрутов id=1001 в правилах маркировки "
@@ -262,7 +262,7 @@ iptable_check() {
 	ready "Наличие правил защиты в iptable"
 	count_local_nets=$(cat < "${EXCLUDED_NET_FILE}" | wc -l)
 	count_ip4tables_rules=$(/opt/sbin/iptables-save \
-		| grep -E "${IPSET_TABLE_NAME}|${VPN_IPTABLES_CHAIN}|${SSR_IPTABLES_CHAIN}" \
+		| grep -E "${IPSET_TABLE_NAME}|${VPN_IPTABLES_CHAIN}|${PROXY_IPTABLES_CHAIN}" \
 		| grep -c '\-A')
 
 	if [ "${count_ip4tables_rules}" -gt "${count_local_nets}" ] ; then
@@ -273,11 +273,11 @@ iptable_check() {
 			export type=iptables; export table=mangle && /opt/etc/ndm/netfilter.d/100-proxy-redirect &> /dev/null
 		else
 			cmd_vpn_iptable_flush
-			ip4set_create_table
-			ip4_mark_vpn_network
+			ip4__route__ipset_create_table
+			ip4_vpn_insert_firewall
 		fi
 		ready "Повторная проверка правил защиты в iptable"
-		if /opt/sbin/iptables-save | grep -qE "${IPSET_TABLE_NAME}|${VPN_IPTABLES_CHAIN}|${SSR_IPTABLES_CHAIN}";  then
+		if /opt/sbin/iptables-save | grep -qE "${IPSET_TABLE_NAME}|${VPN_IPTABLES_CHAIN}|${PROXY_IPTABLES_CHAIN}";  then
 			when_ok "ПРОЙДЕНА"
 		else
 			when_bad "ОШИБКА"
@@ -302,7 +302,7 @@ ipset_check() {
 	[ "$(grep -vcE '^$|#' "${KVAS_LIST_FILE}" )" -eq 0 ] ; then
 		cp /opt/apps/kvas/etc/conf/kvas.list "${KVAS_LIST_FILE}"
 	fi
-	ip4set_create_table
+	ip4__route__ipset_create_table
 	sleep 3
 	/opt/apps/kvas/bin/main/ipset &> /dev/null
 	if ipset list "${IPSET_TABLE_NAME}" | grep -vEi '^[a-z]' &> /dev/null; then
@@ -469,26 +469,26 @@ ipset_site_visit_check() {
 	echo "2. Обязательно проверьте, что адрес DNS клиента идентичен адресу вашего роутера!"
 	echo "3. Далее, очистите все куки в бразуре, в котором хотите увидеть результат!"
 	echo
-	echo "Для продолжения нажмите на любую клавишу."
+	#echo "Для продолжения нажмите на любую клавишу."
 	print_line
-	pause
-	warning "Проверяем заполнения ipset таблицы при посещении сайта."
-	print_line
-	echo "Сейчас, для проверки заполнения, откройте на компьютере браузер"
-	echo -e "Затем зайдите на сайт ${BLUE}https://ifconfig.me${NOCL} в режиме ${RED}ИНКОГНИТО.${NOCL}"
-	echo -e "На странице должен появиться ${BLUE}IP Вашего VDS/VPN провайдера${NOCL}."
-	echo -n "После чего вновь перейдите сюда и нажмите на любую клавишу."
-	pause
-	/opt/apps/kvas/bin/main/ipset &> /dev/null
-	print_line
-	ready "Таблица ipset"
+	#pause
+	#warning "Проверяем заполнения ipset таблицы при посещении сайта."
+	#print_line
+	#echo "Сейчас, для проверки заполнения, откройте на компьютере браузер"
+	#echo -e "Затем зайдите на сайт ${BLUE}https://ifconfig.me${NOCL} в режиме ${RED}ИНКОГНИТО.${NOCL}"
+	#echo -e "На странице должен появиться ${BLUE}IP Вашего VDS/VPN провайдера${NOCL}."
+	#echo -n "После чего вновь перейдите сюда и нажмите на любую клавишу."
+	#pause
+	#/opt/apps/kvas/bin/main/ipset &> /dev/null
+	#print_line
+	#ready "Таблица ipset"
 	if ipset list ${IPSET_TABLE_NAME} | grep -vqEi '^[a-z]'; then
 		when_ok "ЗАПОЛНЕНА"
 	else
 		when_bad "ПУСТА"
-		print_line
-		warning "Попробуйте запустить тест снова и/или обратитесь к документации:"
-		warning "https://github.com/qzeleza/kvas/wiki"
+		#print_line
+		#warning "Попробуйте запустить тест снова и/или обратитесь к документации:"
+		#warning "https://github.com/qzeleza/kvas/wiki"
 	fi
 #	print_line
 
@@ -529,7 +529,7 @@ cmd_state_checker() {
 	else
 #		Проверяем работу vpn подключения
 		vpn_check
-		ip4_mark_vpn_network
+		ip4_vpn_insert_firewall
 	fi
 	print_line
 #	Проверяем правила в таблице iptable

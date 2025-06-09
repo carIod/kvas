@@ -312,8 +312,8 @@ unblock_list_ipset_check(){
 # ------------------------------------------------------------------------------------------
 kvas_ipset_debug() {
 
-	result=$(cat < "/opt/apps/kvas/bin/main/ipset" | sed -n 's/.*\(@[0-9\.:]\{1,20\}\).*/\1/p' | sort -u)
-	echo_debug "DNS сервер, используемый в /opt/apps/kvas/bin/main/ipset" "${result}"
+#	result=$(cat < "/opt/apps/kvas/bin/main/ipset" | sed -n 's/.*\(@[0-9\.:]\{1,20\}\).*/\1/p' | sort -u)
+#	echo_debug "DNS сервер, используемый в /opt/apps/kvas/bin/main/ipset" "${result}"
 #	/opt/apps/kvas/bin/main/ipset &>/dev/null
 	result_ipset=$(ipset list ${IPSET_TABLE_NAME} | grep -vEi '^[a-z]' | sort | head -10 | sed 's/^...../*****/')
 	result=$(echo "${result_ipset}" )

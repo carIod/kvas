@@ -39,7 +39,7 @@ set_perms() {
 
 # ===== Очистка и подготовка =====
 rm -rf "$DATA_DIR" "$BUILD_DIR"/{control,data}.tar.gz "$BUILD_DIR"/*.ipk 2>/dev/null
-mkdir -p "$DATA_DIR"/opt/{apps/kvas,etc/init.d,etc/nmd/fs.d,etc/nmd/netfilter.d}
+mkdir -p "$DATA_DIR"/opt/apps/kvas
 
 
 # ===== 3. data.tar.gz =====
@@ -56,26 +56,24 @@ find "$DATA_DIR/opt/apps" -type d -print0 | while IFS= read -r -d $'\0' dir; do
 done
 
 # Установка прав для etc/
-find "$DATA_DIR/opt/etc" -type d -print0 | while IFS= read -r -d $'\0' dir; do
-    set_perms "$dir" 755
-done
+#find "$DATA_DIR/opt/etc" -type d -print0 | while IFS= read -r -d $'\0' dir; do
+#    set_perms "$dir" 755
+#done
 
 # Копирование отдельных файлов с правами
-declare -A etc_files=(
-    ["$WORK_DIR/opt/etc/init.d/S96kvas"]="$DATA_DIR/opt/etc/init.d/S96kvas"
-    ["$WORK_DIR/opt/etc/ndm/fs.d/15-kvas-start.sh"]="$DATA_DIR/opt/etc/nmd/fs.d/15-kvas-start.sh"
-    ["$WORK_DIR/opt/etc/ndm/netfilter.d/100-dns-local"]="$DATA_DIR/opt/etc/nmd/netfilter.d/100-dns-local"
-)
+#declare -A etc_files=(
+    #["$WORK_DIR/opt/etc/init.d/S55kvas"]="$DATA_DIR/opt/etc/init.d/S55kvas"
+#)
 
-for src in "${!etc_files[@]}"; do
-    dest="${etc_files[$src]}"
-    if [ -f "$src" ]; then
-        cp "$src" "$dest"
-        set_perms "$dest" 755
-    else
-        echo "Предупреждение: Файл $src не найден"
-    fi
-done
+#for src in "${!etc_files[@]}"; do
+#    dest="${etc_files[$src]}"
+#    if [ -f "$src" ]; then
+#        cp "$src" "$dest"
+#        set_perms "$dest" 755
+#    else
+#        echo "Предупреждение: Файл $src не найден"
+#    fi
+#done
 
 # Упаковка data.tar.gz
 cd "$DATA_DIR" || exit 1

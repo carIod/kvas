@@ -16,13 +16,15 @@ chmod -R +x /opt/apps/kvas/etc/ndm/*
 mkdir -p /opt/bin
 [ -L /opt/bin/kvas ] || ln -sf /opt/apps/kvas/bin/kvas /opt/bin/kvas
 
+
 # 3. копирование конфигов
 cp -f /opt/apps/kvas/etc/conf/kvas.conf /opt/etc/kvas.conf
 [ -f /opt/etc/kvas.list ] || cp -f /opt/apps/kvas/etc/conf/kvas.list /opt/etc/kvas.list
 
 mkdir -p /opt/etc/adblock /opt/etc/dnsmasq.d
 cp -f /opt/apps/kvas/etc/conf/adblock.sources /opt/etc/adblock/sources.list
-#cp -f /opt/apps/kvas/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
+
+ln -sf /opt/apps/kvas/etc/init.d/S55kvas /opt/etc/init.d/S55kvas
 
 print_line
 echo -e "Для настройки пакета КВАС наберите \033[36mkvas setup\033[m"

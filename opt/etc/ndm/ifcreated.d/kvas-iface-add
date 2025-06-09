@@ -23,6 +23,10 @@ if [ "${1}" = "hook" ] ; then
     if [ -z "$id" ] || [ -z "$system_name" ]; then
         exit 1
     fi
+    # если интерфейс отсутствует в списке то выходим
+    if [ -z "$(ip -4 a show "$system_name")" ]; then
+        exit 0
+    fi
 
     # Подключаем глобальные параметры
 	# shellcheck source=opt\bin\libs\env.sh
@@ -32,7 +36,21 @@ if [ "${1}" = "hook" ] ; then
         ip -4 a | grep "${SSR_ENTWARE_TEMPL}" | head -n1 | cut -d': ' -f2 | tr -d ' '
     }    
 
-    json=$(curl -s "http://localhost:79/rci/show/interface/${id}")
+    get_interface_data() {
+        local interface_id="$1"
+        # 1. Сначала пробуем параметризованный запрос (самый эффективный)
+        response=$(curl -s "http://localhost:79/rci/show/interface?name=$interface_id")
+    
+        # 2. Если ответ пустой, ищем по ID в полном списке
+        if [ -z "$response" ]; then
+            response=$(curl -s "http://localhost:79/rci/show/interface" | \
+                jq --arg id "$interface_id" '.[] | select(.id == $id)')
+        fi
+        echo "$response"
+    }
+
+
+    json=$(get_interface_data "${id}" )
 
     if [ -n "$json" ]; then
         global=$(echo "$json" | jq -r 'if has("global") and .global == false then "false" else empty end')

@@ -15,7 +15,7 @@ _ENV_INCLUDED=1
 # ------------------------------------------------------------------------------------------
 
 APP_VERSION=1.1.10
-APP_RELEASE=alpha.4
+APP_RELEASE=alpha.5
 
 APP_NAME_DESC=КВАС
 
@@ -70,10 +70,9 @@ ADBLOCK_SOURCES_LIST_BACKUP=${KVAS_BACKUP_PATH}/sources.list
 INSTALL_LOG=/opt/tmp/kvas.install.log
 #CRONTAB_FILE=/opt/etc/crontab
 UPDATE_BIN_FILE=/opt/apps/kvas/bin/main/update
-#DNS_LOCAL_DEMON_FILE=/opt/etc/ndm/netfilter.d/100-dns-local
 #IPSET_REDIRECT_DEMON_FILE=/opt/etc/ndm/netfilter.d/100-proxy-redirect
 INFACE_NAMES_FILE=/opt/etc/inface_equals
-KVAS_START_FILE=/opt/etc/init.d/S96kvas
+KVAS_START_FILE=/opt/etc/init.d/S55kvas
 
 # Файл в котором содержатся сети, запросы из которых необходимо исключить
 # из обращений к VPN или SHADOWSOCKS подключениям
