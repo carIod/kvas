@@ -22,16 +22,20 @@
 #	Лицензия: Apache License 2.0
 # ------------------------------------------------------------------------------
 
-
 # Пропускаем обработку, если тип подключения отличен от iptables
-# а сама талица отлична от mangle
-if [ "${type}" = "iptables" ] ; then
-	# shellcheck source=opt\etc\ndm\ndm
-	. /opt/apps/kvas/bin/libs/ndm
-	# Создаем таблицу kvas для ipset ip4
-	ip4set_create_table &> /dev/null
-	#	маркируем правила
-	[ "${table}" = mangle ] && ip4_mark_vpn_network
-fi
+[ "$type" = "ip6tables" ] && exit 0   # check the protocol type in backward-compatible way
+# shellcheck source=opt\bin\libs\ndm
+. /opt/apps/kvas/bin/libs/ndm
+#	маркируем правила
 
-
+case "${table}" in
+    mangle)
+        ip4_vpn_insert_mangle &>/dev/null
+        ;;
+    nat)
+        ip4_vpn_insert_nat &>/dev/null
+        ;;
+    filter)
+        ip4_vpn_insert_filter &>/dev/null
+        ;;
+esac

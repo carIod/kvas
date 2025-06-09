@@ -1,7 +1,9 @@
 #!/bin/sh
 
+# shellcheck source=opt\bin\libs\route
+. /opt/apps/kvas/bin/libs/route
 # shellcheck source=opt\bin\libs\main
-. /opt/apps/kvas/bin/libs/main
+#. /opt/apps/kvas/bin/libs/main
 # shellcheck source=opt\bin\libs\debug
 . /opt/apps/kvas/bin/libs/debug
 # shellcheck source=opt\bin\libs\ndm
@@ -10,6 +12,7 @@
 . /opt/apps/kvas/bin/libs/adblock
 # shellcheck source=opt\bin\libs\tags
 . /opt/apps/kvas/bin/libs/tags
+
 
 
 # Убираем ошибки связанные с отсутствием /opt/etc/hosts
@@ -46,7 +49,7 @@ IFACE_SELECT_STRING=""
 # ------------------------------------------------------------------------------------------
 update_iptables(){
 
-    recreate_ip4tables
+    #recreate_ip4tables
 
 	if has_ssr_enable; then
 		recreate_ssr_rules
@@ -128,6 +131,46 @@ reset_all_connection(){
 
 }
 
+# выполняется при старте пакета
+cmd_kvas_start() {
+
+	# удаление таблицы маршрутизации ${ROUTE_TABLE_ID}
+	#ip4__route__del_route_table &>/dev/null
+
+	#Cоздаем таблицу IPset для белого списка адресов
+	ip4__route__ipset_create_table
+
+	# проверяем что включено, должно включено только одно, через файлы hook надежнее
+	enable_ssr=$(has_ssr_enable && echo 1 || echo 0)
+	enable_vpn=$(has_vpn_enable && echo 1 || echo 0)
+
+	case "${enable_ssr}${enable_vpn}" in
+        "10") 
+			echo "Только SSR" 
+			;;
+        "01") 
+			echo "Только VPN" 
+			# создаем таблицу маршрутизации
+			ip4_add_route_table &> /dev/null
+			# добавляем условие маршрутизации в таблицу 
+			ip4__route__add_rule &> /dev/null
+			# Создаем правила iptables для маркировки пакетов
+			ip4_vpn_insert_firewall &> /dev/null
+
+			update_ipset no
+			update_adblock
+
+			;;
+        "00") 
+			log_warning "Ничего не включено пакет не настроен" 
+			;;
+        *)  
+			log_error "Несколько функций: SSR=$enable_ssr VPN=$enable_vpn Правила не применились! Разберитесь" 
+			;;
+    esac
+
+}
+
 # ------------------------------------------------------------------------------------------
 #
 # 	Производим инициализацию пакета КВАС
@@ -146,7 +189,8 @@ cmd_kvas_init(){
 
 #	Производим перезапуск подключения к интернету
 #	если не режим update и если текущее подключение не ssr
-	if [ "${stage}" = refresh ] || ! has_ssr_enable ; then
+#TODO по ходу дела никогда не выполняется, не вижу запуска с параметром refresh
+	if [ "${stage}" = refresh ]; then
 			reset_all_connection
 	fi
 
@@ -157,10 +201,10 @@ cmd_kvas_init(){
 
 	ip4_add_route_table
 
-#	ready "${prefix}Создаем таблицу маршрутизации ID#${TABLE_ID} для '$(inface_cli)'."
+#	ready "${prefix}Создаем таблицу маршрутизации ID#${ROUTE_TABLE_ID} для '$(inface_cli)'."
 #	#	Создаем таблицу IP адресов для  VPN подключения отличного от shadowsocks
 #
-#	ip4_add_route_table &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+#ip4_add_route_table &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 	[ "${stage}" = initd ] && update_time || all_services_restart
 
@@ -195,6 +239,15 @@ all_services_restart(){
 	fi
 
 }
+
+dns_services_restart(){
+	if has_adguard_enable; then
+		service_restart AdGuardHome S99adguardhome
+	else
+		service_restart dnsmasq S56dnsmasq
+	fi
+}
+
 
 
 
@@ -691,7 +744,7 @@ cmd_adguardhome_off(){
 		/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
 		kill -9 $(pgrep dnscrypt-proxy) &> /dev/null
 	}
-	cp /opt/apps/kvas/etc/init.d/S96kvas "${KVAS_START_FILE}"
+	cp /opt/apps/kvas/etc/init.d/S55kvas "${KVAS_START_FILE}"
 	dnsmasq_install '' &> /dev/null
 	#	Обновляем правила ip4tables для доступного соединения
 	ip4_firewall_flush_all_rules
@@ -956,7 +1009,9 @@ bridge_vpn_access_add() {
 			bridge_access_add "${guest_bridge_id}"
 
 			if has_ssr_enable; then
-				ip4_add_selected_guest_to_ssr_network "${guest_bridge_id}"
+				if iptab -t nat -L "${PROXY_IPTABLES_CHAIN}" -n &>/dev/null; then
+					ip4_add_selected_guest_to_ssr_network "${guest_bridge_id}"
+				fi	
 			fi
 		fi
 	fi
@@ -1040,7 +1095,7 @@ ipset_dns_change() {
 	dns_new=${1};
 	if echo "${dns_new}" | grep -qE ':|#'; then
 		_dns_clear=$(echo "${dns_new}" | tr '#' ':' )
-		sed -i "s/@[a-zA-Z0-9:.]*/@${_dns_clear}/" "/opt/apps/kvas/bin/main/ipset"
+	#	sed -i "s/@[a-zA-Z0-9:.]*/@${_dns_clear}/" "/opt/apps/kvas/bin/main/ipset"
 	fi
 }
 
@@ -1257,11 +1312,16 @@ dns_show() {
 # ------------------------------------------------------------------------------------------
 vpn_off() {
 #	ready "Интерфейс vpn отключен "
-	hook_dir=$(get_hook_dir);
-	[ -f "/opt/etc/ndm/netfilter.d/100-vpn-mark" ] && rm -f "/opt/etc/ndm/netfilter.d/100-vpn-mark"
-	[ -f /opt/etc/ndm/${hook_dir}/100-kvas-vpn ] && rm -f /opt/etc/ndm/${hook_dir}/100-kvas-vpn
-	[ -f "/opt/etc/ndm/fs.d/100-vpn" ] && rm -f "/opt/etc/ndm/fs.d/100-vpn"
-	cmd_vpn_iptable_flush  &> /dev/null
+	if has_vpn_enable ; then
+		hook_dir=$(get_hook_dir);
+		# убираем скрипты которые могут обновить правила в iptables
+		[ -f "/opt/etc/ndm/netfilter.d/100-vpn-mark" ] && rm -f "/opt/etc/ndm/netfilter.d/100-vpn-mark"
+		[ -f /opt/etc/ndm/${hook_dir}/100-kvas-vpn ] && rm -f /opt/etc/ndm/${hook_dir}/100-kvas-vpn
+		# очищаем iptables от пользовательских правил
+		cleanup_all_user_rules  &> /dev/null
+		# удаляем правило маршрутизации в таблицу ${ROUTE_TABLE_ID}
+		ip4__route__del_rule  &> /dev/null
+	fi	
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1306,54 +1366,47 @@ vpn_on() {
 
 	ready "Интерфейс ${_inface_cli_desc} подключен "
 	{
-
-		ln -sf "/opt/apps/kvas/etc/ndm/fs.d/100-vpn" "/opt/etc/ndm/fs.d/100-vpn"
-		#chmod +x "/opt/etc/ndm/fs.d/100-vpn"
-
-	#	Производим замену в конфигурационном файле основных значения интерфейсов
-	# это лишнее только что в switch_vpn_on была замена
-	#	config_interface_change "${inface_entware}" "${_inface_cli}" "${_inface_cli_desc}"  
-
 		ln -sf "/opt/apps/kvas/etc/ndm/netfilter.d/100-vpn-mark" "/opt/etc/ndm/netfilter.d/100-vpn-mark"
-		#chmod +x "/opt/etc/ndm/netfilter.d/100-vpn-mark"
-
 #		Если версия фирменной оболочки равно или больше 4.0,
 #		то применяем механизм iflayerchanged.d, если нет, то ifstatechanged.d
 		hook_dir=$(get_hook_dir)
+		#TODO если интерфейс нестандартный его нет в CLI то скорей всего следующий скрипт бесполезен, а может быть и вреден		
 		ln -sf "/opt/apps/kvas/etc/ndm/${hook_dir}/100-kvas-vpn" "/opt/etc/ndm/${hook_dir}/100-kvas-vpn"
-		#chmod +x "/opt/etc/ndm/${hook_dir}/100-kvas-vpn"
 
+		#TODO мне кажется этот код не на месте, не здесь нужно проверять есть интерфейс или нет, а ранее при выборе
 		state=$(get_value_interface_field "${_inface_cli}" state)
-
 		if [ -z "${state}" ] || [ "${state}" = "null" ]; then
 			if ! [ "${_inface_cli}" = "manual" ]; then
 				echo "Интерфейс ${_inface_cli} не существует" >&2
 				exit 1
-			fi			
-		else
-
-			if [ "${state}" = 'down' ]; then
-				curl -s -d '{"up":"true"}' "${INFACE_PART_REQUEST}/${_inface_cli}" &> /dev/null
-				sleep 2
 			fi
-	#		connected=$(get_value_interface_field "${_inface_cli}" connected)
-			connected=$(get_value_interface_field "${_inface_cli}" state)
+		fi				
 
-	#		if [ "${connected}" = 'no' ]; then
-			if [ "${connected}" = 'down' ]; then
-
-				when_bad "С ОШИБКАМИ"
-				error "Возникла ошибка при подключении интерфейса ${inface_entware}!"
-				error "Проверьте доступность сервера и настройки клиента!"
-				exit 1
-			else
-				recreate_ip4tables
-				recreate_vpn_rules
-			fi
-		fi	
+		if [ "${state}" = 'down' ]; then
+			curl -s -d '{"up":"true"}' "${INFACE_PART_REQUEST}/${_inface_cli}" &> /dev/null
+			sleep 2
+		fi
+		connected=$(get_value_interface_field "${_inface_cli}" state)
+		if [ "${connected}" = 'down' ]; then
+			when_bad "С ОШИБКАМИ"
+			error "Возникла ошибка при подключении интерфейса ${inface_entware}!"
+			error "Проверьте доступность сервера и настройки клиента!"
+			exit 1
+		fi
+		# исправил логику, какая нам разница подключился интерфейс или нет, мы все равно должны настроить правила 
+		# меняем выходной интерфейс в таблице маршрутизации
+		ip4_add_route_table
+		# очищаем iptables от всех внесенных изменений (необходимо если менялся интерфейс)
+		cleanup_all_user_rules
+		# добавляем правило маршрутизации в таблицу ${ROUTE_TABLE_ID}
+		ip4__route__add_rule
+		# теперь заново вносим изменения в iptables  (необходимо если менялся интерфейс)
+		ip4_vpn_insert_firewall	
+		# выполняем сброс кэша
+		ip4__route__flush_cache
+			
 	} 1> /dev/null 2> "${ERROR_LOG_FILE}"
 	ready_status "${?}" "Возникла ошибка при подключении VPN соединения [${_inface_cli_desc}]" "УСПЕШНО"
-
 }
 
 active_backup_config(){
@@ -1437,7 +1490,7 @@ shadowsocks_read_config(){
 		ready "Изменяем конфигурацию ${SHADOWSOCKS_CONF} для введенных данных..."
 		sed -i "s/\(\"server\":\).*/\1 \"${SSR_SERVER_IP}\",/; 			\
 				s/\(\"server_port\":\).*/\1 ${SSR_SERVER_PORT},/; 		\
-				s/\(\"local_port\":\).*/\1 $(get_config_value SSR_DNS_PORT),/; 		\
+				s/\(\"local_port\":\).*/\1 $(get_config_value PROXY_PORT),/; 		\
 				s/\(\"password\":\).*/\1 \"${ESCAPED_PASSWD}\",/; 	\
 				s/\(\"method\":\).*/\1 \"${SSR_SERVER_CRYPT}\",/;" 		\
 			"${SHADOWSOCKS_CONF}" &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
@@ -1543,7 +1596,7 @@ shadowsocks_read_link(){
 			ready "Изменяем конфигурацию ${SHADOWSOCKS_CONF} для введенных данных..."
 			sed -i "s/\(\"server\":\).*/\1 \"${SSR_SERVER_IP}\",/; 			\
 					s/\(\"server_port\":\).*/\1 ${SSR_SERVER_PORT},/; 		\
-					s/\(\"local_port\":\).*/\1 $(get_config_value SSR_DNS_PORT),/; 		\
+					s/\(\"local_port\":\).*/\1 $(get_config_value PROXY_PORT),/; 		\
 					s/\(\"password\":\).*/\1 \"${ESCAPED_PASSWD}\",/; 	\
 					s/\(\"method\":\).*/\1 \"${SSR_SERVER_CRYPT}\",/;" 		\
 				"${SHADOWSOCKS_CONF}" &>/dev/null && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
@@ -1582,8 +1635,8 @@ cmd_shadowsocks_iptable_reset() {
 	if [ -f /opt/apps/kvas/bin/libs/ndm ]; then
 		local_ip=$(get_router_ip)
 		inface=$(get_inface_by_ip "${local_ip}")
-		proxy_port=$(get_config_value SSR_DNS_PORT)
-		recreate_ip4tables &>/dev/null
+		proxy_port=$(get_config_value PROXY_PORT)
+		#recreate_ip4tables &>/dev/null
 		rc1=$?
 		recreate_ssr_rules &>/dev/null
 		rc2=$?
@@ -1603,13 +1656,17 @@ cmd_shadowsocks_iptable_reset() {
 #
 # ------------------------------------------------------------------------------------------
 shadowsocks_off() {
-	ready "Интерфейс shadowsocks отключен "
-	#	сохраняем файл конфигурации shadowsocks
-	/opt/etc/init.d/S22shadowsocks stop &> /dev/null
-	[ -f "${SHADOWSOCKS_CONF}" ] || mv -f "${SHADOWSOCKS_CONF}" "${SHADOWSOCKS_CONF}.kvas" &> /dev/null
-	rm -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect"
-	cmd_shadowsocks_iptable_flush &> /dev/null
-	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
+
+	if has_ssr_enable ; then # если хук стоит то убираем его и очищаем правила.
+		ready "Интерфейс shadowsocks отключен "
+		#	сохраняем файл конфигурации shadowsocks
+		/opt/etc/init.d/S22shadowsocks stop &> /dev/null
+		[ -f "${SHADOWSOCKS_CONF}" ] || mv -f "${SHADOWSOCKS_CONF}" "${SHADOWSOCKS_CONF}.kvas" &> /dev/null
+		rm -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect"
+		# очищаем все правила в iptables
+		cleanup_all_user_rules &> /dev/null
+		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
+	fi	
 }
 
 # ------------------------------------------------------------------------------------------
@@ -1633,14 +1690,14 @@ cmd_shadowsocks_local_port_change() {
 #			sed -i "s/\(--to-port\).*/\1 ${port_new}/g" "/opt/etc/ndm/netfilter.d/100-proxy-redirect"
 			sed -i "s/\(local_port\":\).*/\1 ${port_new}/g" "${SHADOWSOCKS_CONF}"
 
-			set_config_value SSR_DNS_PORT "${port_new}"
+			set_config_value PROXY_PORT "${port_new}"
 			cmd_shadowsocks_iptable_reset &> /dev/null
 
 			[ "${cmd}" = restart ] && /opt/etc/init.d/S22shadowsocks restart &> /dev/null
 			[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 		else
 			ready "Текущий номер порта shadowsocks соединения:"
-			when_ok "$(get_config_value SSR_DNS_PORT)"
+			when_ok "$(get_config_value PROXY_PORT)"
 		fi
 	else
 		answer=''
@@ -1667,7 +1724,7 @@ shadowsocks_on() {
 	cp "/opt/apps/kvas/etc/ndm/netfilter.d/100-proxy-redirect" "/opt/etc/ndm/netfilter.d/100-proxy-redirect"
 	chmod +x "/opt/etc/ndm/netfilter.d/100-proxy-redirect"
 #	Производим замену в конфигурационном файле основных значения интерфейсов
-	config_interface_change "$(get_ssr_entware_interface)" "shadowsocks" "shadowsocks"
+	#config_interface_change "$(get_ssr_entware_interface)" "shadowsocks" "shadowsocks"
 
 	cmd_shadowsocks_iptable_reset  &> /dev/null
 	#   настройка S22shadowsocks конфигурации
@@ -1778,13 +1835,13 @@ cmd_scan_interface_list() {
 #		entware (по умолчанию) - id интерфейсов в entware
 #
 # ------------------------------------------------------------------------------------------
-get_vpn_interface_by_num() {
-	number="${1}"
-	type_data=${2:-entware}
+# get_vpn_interface_by_num() {
+# 	number="${1}"
+# 	type_data=${2:-entware}
 
-	if [ "${type_data}" = entware ]; then _type=2; else _type=1; fi
-	cat < "${INFACE_NAMES_FILE}" | sed -n "${number}"'p' | cut -d'|' -f"${_type}"
-}
+# 	if [ "${type_data}" = entware ]; then _type=2; else _type=1; fi
+# 	cat < "${INFACE_NAMES_FILE}" | sed -n "${number}"'p' | cut -d'|' -f"${_type}"
+# }
 
 # ------------------------------------------------------------------------------------------
 #
@@ -1792,6 +1849,7 @@ get_vpn_interface_by_num() {
 #	$1 - id интерфейса в cli
 #
 # ------------------------------------------------------------------------------------------
+#TODO посмотреть проверку что интерфейс online
 is_vpn_interface_connected() {
 	cli_inface="${1}"
 	if [ "${cli_inface}" = shadowsocks ] ; then
@@ -1830,6 +1888,7 @@ show_vpn_list() {
 		num=$((num + 1))
 		cli_inface=$(echo "$line" | cut -d"|" -f1)
 		ent_inface=$(echo "$line" | cut -d"|" -f2)
+		cli_inface_desc=$(echo "$line" | cut -d"|" -f4)
 		net_ip=$(get_ip_by_inface "${ent_inface}")
 		[ -n "${net_ip}" ] && net_ip=" [${net_ip}]"
 		
@@ -1880,7 +1939,7 @@ switch_vpn_on(){
 #	Производим замену в конфигурационном файле основных значения интерфейсов
 	config_interface_change "${inface_entware}" "${cli_inface}" "${cli_inface_desc}"
 
-	if [[ "${inface_entware}" =~ ${SSR_ENTWARE_TEMPL} ]]; then
+	if [ "${cli_inface}" = "shadowsocks" ]; then
 		vpn_off &> /dev/null
 		shadowsocks_backup
 		shadowsocks_on
@@ -1955,12 +2014,12 @@ select_vpn_interface() {
 #			если интернет отключен, то выдаем сообщение
 			if curl -s "http://localhost:79/rci/show/interface" | \
 				jq -r '.[] | select(.id=="'"$(get_defaultgw_id)"'" and .state=="up" and .link=="up") | .connected' | grep -qv 'yes' ; then
-
-				if cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then
-					/opt/etc/init.d/S56dnsmasq stop  &> /dev/null
-				else
-					"${ADGUARDHOME_DEMON}" stop &> /dev/null
-				fi
+				#TODO посмотреть логику пока что она не понятна. Закоментировал остановку сервисов
+				# if cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then
+				# 	/opt/etc/init.d/S56dnsmasq stop  &> /dev/null
+				# else
+				# 	"${ADGUARDHOME_DEMON}" stop &> /dev/null
+				# fi
 				cli="$(get_router_host)/a"
 				echo -e "${RED}К сожалению, у Вас пропал интернет. ${NOCL}"
 				echo -e "${RED}Проверьте основное подключение к провайдеру. ${NOCL}"
@@ -2068,15 +2127,15 @@ dns_crypt_port_change() {
 
 	set_config_value DNS_CRYPT_PORT "${port_new}"
 	sed -i "s/\(^listen_addresses.=.\).*$/\1['[::]:${port_new}']/g" "${DNSCRYPT_CONFIG}" &> /dev/null
-	sed -i "s/\(@.*\)\(:[0-9]\{2,6\}\)/\1:${port_new} /g" '/opt/apps/kvas/bin/main/ipset' &> /dev/null
+	#sed -i "s/\(@.*\)\(:[0-9]\{2,6\}\)/\1:${port_new} /g" '/opt/apps/kvas/bin/main/ipset' &> /dev/null
 
 	[ -f /opt/etc/dnsmasq.d/kvas.dnsmasq ] && {
 		server_crypt_0="echo \"server=\/:.*\${host}:\/${LOCALHOST_IP}#${port_new}\" >> \/opt\/etc\/dnsmasq.d\/kvas.dnsmasq"
 		server_crypt_1="echo \"server=\/\${host}\/${LOCALHOST_IP}#${port_new}\" >> \/opt\/etc\/dnsmasq.d\/kvas.dnsmasq"
 	}
-	sed -i '/server/d' '/opt/apps/kvas/bin/main/dnsmasq' &> /dev/null
-	sed -i "s/\(echo \"ipset=\/:.*\)/\1\n\t${server_crypt_0}/" '/opt/apps/kvas/bin/main/dnsmasq' &> /dev/null
-	sed -i "s/\(echo \"ipset=\/\$.*\)/\1\n\t${server_crypt_1}/" '/opt/apps/kvas/bin/main/dnsmasq' &> /dev/null
+	#sed -i '/server/d' '/opt/apps/kvas/bin/main/dnsmasq' &> /dev/null
+	#sed -i "s/\(echo \"ipset=\/:.*\)/\1\n\t${server_crypt_0}/" '/opt/apps/kvas/bin/main/dnsmasq' &> /dev/null
+	#sed -i "s/\(echo \"ipset=\/\$.*\)/\1\n\t${server_crypt_1}/" '/opt/apps/kvas/bin/main/dnsmasq' &> /dev/null
 
 	if [ "${cmd}" = restart ]; then
 		cmd_dnsmasq_dns_change "${LOCALHOST_IP}#${port_new}" restart &> /dev/null
@@ -2249,10 +2308,10 @@ cmd_dns_crypt_off() {
 		{
 			crypt_port=$(get_config_value DNS_CRYPT_PORT)
 			static_dns=$(get_config_value DNS_STATIC_1)
-			sed -i "s/\(@.*\)\(:[0-9]\{2,6\}\)/@localhost/g" '/opt/apps/kvas/bin/main/ipset'
+			#sed -i "s/\(@.*\)\(:[0-9]\{2,6\}\)/@localhost/g" '/opt/apps/kvas/bin/main/ipset'
 			sed -i "/proxy-dnssec/d" /opt/etc/dnsmasq.conf
 			sed -i "s/\(^server=\)${LOCALHOST_IP}#${crypt_port}/\1${static_dns}/" /opt/etc/dnsmasq.conf
-			sed -i '/server/d' '/opt/apps/kvas/bin/main/dnsmasq'
+			#sed -i '/server/d' '/opt/apps/kvas/bin/main/dnsmasq'
 
 			rm "${DNSMASQ_IPSET_HOSTS}"
 			_dns=$(cat < "${DNSMASQ_CONFIG}" | sed -n 's/^server=\(.*\)$/\1/p')
@@ -2403,20 +2462,23 @@ host_add() {
 	ready "Добавляем ${YELLOW}${_host}${NOCL} в защищенный список..."
 	echo "${_host}" >> "${KVAS_LIST_FILE}"
 
+	# сразу же добавляем хост в конфигурацию DNSMASQ
+	if ! echo "${clear_host}" | grep -qE "${IP_FILTER}|${NET_FILTER}" ; then
+    	echo "ipset=/${clear_host}/${IPSET_TABLE_NAME}" >> "${DNSMASQ_IPSET_HOSTS}"
+	fi
+
 #	если включен блокировщик рекламы
 	if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
 		ads_list_hosts_update &> /dev/null
 	fi
-
-	[ "${reset}" = 'yes' ] && cmd_kvas_init  &> /dev/null
 
 	[ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ] && cmd_adguardhome_status | grep -q ВКЛЮЧЕН && add_host_to_adguard "${clear_host}" &> /dev/null
 	add_host_to_ipset "${clear_host}" &> /dev/null
 
 	[ $? = 0 ] && when_ok "ДОБАВЛЕН" || when_bad "НЕ ДОБАВЛЕН"
 
-
-
+		# если перезапускаем то перезапускаем только DNS сервисы которые задействованы 
+	[ "${reset}" = 'yes' ] && dns_services_restart  #&> /dev/null
 }
 
 # ------------------------------------------------------------------------------------------
@@ -2457,7 +2519,7 @@ cmd_add_one_host() {
 
 	
 	# Если  помимо этого домена существует еще доменные с одноименным тегом
-	# то делаем запрос на их доавление.
+	# то делаем запрос на их добавление.
 	local _tmpfile
 	_tmpfile=$(mktemp)
 	echo "${host}" | grep -qE "${ip_filter}" || {
@@ -2488,21 +2550,21 @@ cmd_add_one_host() {
 			# если точка в имени домена есть, то проверяем на корректность IP
 			if echo "${clear_host}" | grep -qE "^${ip_filter}/[0-9]{1,2}$|^${ip_filter}$|^${ip_filter}-${ip_filter}$"; then
 				# если включен режим импорта
-				if [ "${wild}" = import ]; then
+				if [ "${wild}" = import ] ; then
 					host_add "${host}" "${reset}" "${wild}" | grep -q "ДОБАВЛЕН" && echo +
 				else
 					host_add "${host}" "${reset}" "${wild}"
 				fi
 			else
-				if [ "${wild}" = import ]; then
-					echo 2
+				if [ "${wild}" = import ] ; then
+					echo "2"
 				else
 					error "Введенный IP адрес или диапазон IP-адресов имеет некорректный формат." nl
 				fi
 			fi
 		else
 			# проверка на наличие домена в списке защиты доменов
-			if cat < "${KVAS_LIST_FILE}" | grep -qE "^${clear_host}"; then
+			if cat < "${KVAS_LIST_FILE}" | grep -qE "^${clear_host}" ; then
 				[ "${wild}" = import ] || warning "Такой домен уже есть в защищенном списке!"
 				if [ "${clear_host}" != "${host}" ] ; then
 					warning "Производим замену ${clear_host} на ${host}"
@@ -2510,18 +2572,18 @@ cmd_add_one_host() {
 					sed -i "/^${clear_host}$/d" "${KVAS_LIST_FILE}"
 
 					if [ "${wild}" = import ]; then
-						host_add "${host}" "${reset}" "${wild}" | grep -q "ДОБАВЛЕН" && echo 1
+						host_add "${host}" "${reset}" "${wild}" | grep -q "ДОБАВЛЕН" && echo "1"
 					else
 						host_add "${host}" "${reset}" "${wild}"
 					fi
 				else
-					[ "${wild}" = import ] && echo -
+					[ "${wild}" = import ] && echo "-"
 				fi
 
 			else
 
 				if [ "${wild}" = import ]; then
-					host_add "${host}" "${reset}" "${wild}" | grep -q "ДОБАВЛЕН" && echo +
+					host_add "${host}" "${reset}" "${wild}" | grep -q "ДОБАВЛЕН" && echo "+"
 				else
 					host_add "${host}" "${reset}" "${wild}"
 				fi
@@ -2529,7 +2591,7 @@ cmd_add_one_host() {
 		fi
 	else
 		if [ "${wild}" = import ]; then
-			echo 2
+			echo "2"
 		else
 			error "Некорректно указано имя домена - ${1}." no_nln
 		fi
@@ -2559,19 +2621,29 @@ cmd_del_one_host() {
 
 	if cat < "${KVAS_LIST_FILE}" | grep -qe "${host_}$" ; then
 		ready "Удаляем ${YELLOW}${host_}${NOCL} из списка защищенных..."
+		
 		sed -i "/${host_////\\/}/d" "${KVAS_LIST_FILE}"
-
+		sed -i "/${host_////\\/}/d" "${DNSMASQ_IPSET_HOSTS}"
 		cmd_adguardhome_status | grep -q ВКЛЮЧЕН && sed -i "/${host_////\\/}/d" "${ADGUARD_IPSET_FILE}"
-		cmd_kvas_init  &> /dev/null
+		
+		# мы не можем отследить все домены третьего и выше уровней поэтому единственный способ очистить таблицу
+		ipset flush ${IPSET_TABLE_NAME}
+		# сразу заполняем таблицу статическими ip адресами если есть
+		/opt/apps/kvas/bin/main/ipset &> /dev/null
+		#cmd_kvas_init  &> /dev/null
 #		cmd_kvas_init  "refresh"  &> /dev/null
 		[ $? = 0 ] && when_ok "УДАЛЕН" || when_bad "НЕ УДАЛЕН"
+
+		#Перезапускаем DNS сервисы которые задействованы тем самым сбросим кэш сервера
+		dns_services_restart  #&> /dev/null
+
 		#	если включен блокировщик рекламы
 		if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
 			ready "Удаляем ${YELLOW}${host_}${NOCL} из списка блокировки рекламы..."
 			/opt/apps/kvas/bin/main/adblock &> /dev/null
 			[ $? = 0 ] && when_ok "УДАЛЕН" || when_bad "НЕ УДАЛЕН"
 		fi
-		cmd_vpn_iptable_reset &> /dev/null
+		#cmd_vpn_iptable_reset &> /dev/null
 
 	else
 		error "Такая запись отсутствует в списке защищенных!" no_nln
@@ -2613,9 +2685,21 @@ del_multy_hosts() {
 			[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 		fi
 		print_line
-		ready "Перегружаем все правила конфигурации iptables и ipset"
-		cmd_kvas_init  &> /dev/null && cmd_vpn_iptable_reset &> /dev/null
+		# тестово Закоментировал пересоздание таблиц iptables не понял зачем.
+		#ready "Перегружаем все правила конфигурации iptables и ipset"
+		#cmd_kvas_init  &> /dev/null && cmd_vpn_iptable_reset &> /dev/null
+		
+		ready "Перезапускаем DNS сервисы которые задействованы"
+		# мы не можем отследить все домены третьего и выше уровней поэтому единственный способ очистить таблицу
+		ipset flush ${IPSET_TABLE_NAME}
+		# сразу заполняем таблицу статическими ip адресами если есть
+		/opt/apps/kvas/bin/main/ipset &> /dev/null
+
 		[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+
+		#Перезапускаем DNS сервисы которые задействованы тем самым сбросим кэш сервера		
+		dns_services_restart  #&> /dev/null
+
 	fi
 
 }
@@ -2641,8 +2725,15 @@ cmd_clear_list() {
 					ready "Очищаем защищенный список..."
 					mv -f "${KVAS_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
 					rm -f "${ADGUARD_IPSET_FILE}"
+					touch "${ADGUARD_IPSET_FILE}"
 					touch "${KVAS_LIST_FILE}"
-					cmd_kvas_init  "update" &> /dev/null
+					rm -f "${DNSMASQ_IPSET_HOSTS}"
+					touch "${DNSMASQ_IPSET_HOSTS}"
+					#cmd_kvas_init  "update" &> /dev/null
+					# очистить таблицу
+					ipset flush ${IPSET_TABLE_NAME}
+					#Перезапускаем DNS сервисы которые задействованы тем самым сбросим кэш сервера		
+					dns_services_restart  #&> /dev/null
 					[ $? = 0 ] && when_ok "ОЧИЩЕН" || when_bad "ОШИБКА"
 					print_line
 					warning "Предыдущий защищенный список был сохранен в файл ${KVAS_LIST_FILE_BACKUP}"
@@ -2730,7 +2821,7 @@ cmd_import_hosts() {
 			if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
 				ads_list_hosts_update &> /dev/null
 			fi
-
+			#TODO зачем то перезапускается все правила
 			cmd_kvas_init  "update" &> /dev/null
 
 			[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"

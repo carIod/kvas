@@ -20,7 +20,7 @@ if [ "${1}" = "hook" ] && [ "${change}" = "link" ] ; then
 				[ -f "${tmp_file}" ] && {
 					# После отключения PPTP|L2TP (которое используется для подключения к провайдеру)
 					# и при наличии файла tmp_file - переустанавливаем ipset правила для восстановления
-					cmd_vpn_iptable_reset &> /dev/null
+					#cmd_vpn_iptable_reset &> /dev/null
 					logger -t "КВАС"  "Соединение ${id} успешно подключено, правила восстановлены!"
 					rm -f "${tmp_file}"
 				}
@@ -37,8 +37,8 @@ if [ "${1}" = "hook" ] && [ "${change}" = "link" ] ; then
 				logger -t "КВАС"  "Соединение ${id} прервано. Правила и таблицы НЕ очищены!"
 			;;
 			"yes-up-up" )
-				cmd_vpn_iptable_reset &> /dev/null
-				logger -t "КВАС"  "Соединение ${id} установлено. Правила и таблицы пересозданы."
+				#cmd_vpn_iptable_reset &> /dev/null
+				logger -t "КВАС"  "Соединение ${id} установлено. Правила и таблицы НЕ пересозданы."
 			;;
 		esac
 	fi
