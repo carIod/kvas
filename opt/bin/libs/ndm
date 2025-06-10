@@ -105,7 +105,7 @@ EOF
                 #echo "Ошибка удаления цепочки: $chain" >&2
             fi
         done <<EOF
-$(echo "$rules" | awk -v chain="$START_CHAIN" -F '[: ]' '$1 == ":"chain {print $2}')
+$(echo "$rules" | awk -v chain="$START_CHAIN" '$1 ~ "^:" chain {sub(/^:/, "", $1); print $1}')
 EOF
     done
 
@@ -205,9 +205,9 @@ ip4_firewall_exclude_locals(){
 #TODO подумать над переходом на iptables-restore --noflush
 ip4_vpn_insert_mangle(){
 	{
-		log_warning "Маркируем VPN подключения, когда программное и аппаратное ускорение ПОДКЛЮЧЕНО"
-
 		if ! iptab -t mangle -L "${VPN_IPTABLES_CHAIN}" -n &>/dev/null; then
+			log_warning "Заполняем таблицу mangle правилами КВАС"
+
 			iptab -N "${VPN_IPTABLES_CHAIN}" -t mangle &>/dev/null
 	
 			iptab -A "${VPN_IPTABLES_CHAIN}" -t mangle -m set ! --match-set "${IPSET_TABLE_NAME}" dst -j RETURN &>/dev/null
@@ -230,7 +230,7 @@ ip4_vpn_insert_mangle(){
 				chain="${START_CHAIN}MTU"
 				# так как интерфейс создан вручную то добавляем правила для корекции MTU при пересылке
 				iptab -t mangle -N "${chain}" &>/dev/null
-				iptab -t mangle -A "${chain}" -j TCPMSS --clamp-mss-to-pmtu &>/dev/null
+				iptab -t mangle -A "${chain}" -p tcp -m tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu &>/dev/null
 				
 				iptab -t mangle -A FORWARD -i "${inface_entware}" -p tcp -m tcp --tcp-flags SYN,RST SYN -j "${chain}" &>/dev/null
 				iptab -t mangle -A FORWARD -o "${inface_entware}" -p tcp -m tcp --tcp-flags SYN,RST SYN -j "${chain}" &>/dev/null
@@ -354,11 +354,11 @@ ip4_vpn_insert_filter(){
 			if [ "$cli_inface" = "manual" ]; then
 				inface_entware="$(get_config_value INFACE_ENT)"
 
+				iptab -t "${table}" -A "${chain}" -o "${inface_entware}" -m mark --mark "${MARK_NUM}/${MARK_NUM}" \
+  					-m conntrack --ctstate NEW,ESTABLISHED,RELATED -j ACCEPT
+
 				iptab -t "${table}" -A "${chain}" -i "${inface_entware}" \
   					-m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT	
-
-				iptab -t "${table}" -A "${chain}" -o "${inface_entware}" -m mark --mark "${MARK_NUM}/"${MARK_NUM}"" \
-  					-m conntrack --ctstate NEW,ESTABLISHED,RELATED -j ACCEPT
 
 				log_warning "Подключаем правила разрешения пересылки маркированного трафика в ${inface_entware}"
 				# пока что других правил обязательных нет для фильтра в vpn подключении поэтому переход в цепочку сделаю внутри проверки на manual
@@ -796,7 +796,10 @@ ip4_add_route_table() {
 		if [[ -n "${_old_if}" ]] && [[ "${_old_if}" != "${_inface_ent}" ]]; then
 			# интерфейс меняется — скорее всего, мы переключились на другой маршрут
 			# необходимо удалить зависшие маршруты в conntrack
-			conntrack -D --mark "${MARK_NUM}"
+			mess="Сменился сетевой интерфейс (было: ${_old_if}, стало: ${_inface_ent}). Удаляем старые сетевые привязки..."
+			log_warning "${mess}"
+			#ready "${mess}"			
+			conntrack -D --mark "${MARK_NUM}" &> /dev/null
 		fi
 
 		local _ip_output
