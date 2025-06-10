@@ -1366,33 +1366,34 @@ vpn_on() {
 
 	ready "Интерфейс ${_inface_cli_desc} подключен "
 	{
-		ln -sf "/opt/apps/kvas/etc/ndm/netfilter.d/100-vpn-mark" "/opt/etc/ndm/netfilter.d/100-vpn-mark"
+		[ -e "/opt/etc/ndm/netfilter.d/100-vpn-mark" ] || ln -sf "/opt/apps/kvas/etc/ndm/netfilter.d/100-vpn-mark" "/opt/etc/ndm/netfilter.d/100-vpn-mark"
 #		Если версия фирменной оболочки равно или больше 4.0,
 #		то применяем механизм iflayerchanged.d, если нет, то ifstatechanged.d
 		hook_dir=$(get_hook_dir)
 		#TODO если интерфейс нестандартный его нет в CLI то скорей всего следующий скрипт бесполезен, а может быть и вреден		
-		ln -sf "/opt/apps/kvas/etc/ndm/${hook_dir}/100-kvas-vpn" "/opt/etc/ndm/${hook_dir}/100-kvas-vpn"
+		[ -e "/opt/etc/ndm/${hook_dir}/100-kvas-vpn" ] || ln -sf "/opt/apps/kvas/etc/ndm/${hook_dir}/100-kvas-vpn" "/opt/etc/ndm/${hook_dir}/100-kvas-vpn"
 
-		#TODO мне кажется этот код не на месте, не здесь нужно проверять есть интерфейс или нет, а ранее при выборе
-		state=$(get_value_interface_field "${_inface_cli}" state)
-		if [ -z "${state}" ] || [ "${state}" = "null" ]; then
-			if ! [ "${_inface_cli}" = "manual" ]; then
+		
+		if ! [ "${_inface_cli}" = "manual" ]; then
+			#TODO мне кажется этот код не на месте, не здесь нужно проверять есть интерфейс или нет, а ранее при выборе
+			state=$(get_value_interface_field "${_inface_cli}" state)
+			if [ -z "${state}" ] || [ "${state}" = "null" ]; then
 				echo "Интерфейс ${_inface_cli} не существует" >&2
 				exit 1
-			fi
-		fi				
+			fi				
 
-		if [ "${state}" = 'down' ]; then
-			curl -s -d '{"up":"true"}' "${INFACE_PART_REQUEST}/${_inface_cli}" &> /dev/null
-			sleep 2
-		fi
-		connected=$(get_value_interface_field "${_inface_cli}" state)
-		if [ "${connected}" = 'down' ]; then
-			when_bad "С ОШИБКАМИ"
-			error "Возникла ошибка при подключении интерфейса ${inface_entware}!"
-			error "Проверьте доступность сервера и настройки клиента!"
-			exit 1
-		fi
+			if [ "${state}" = 'down' ]; then
+				curl -s -d '{"up":"true"}' "${INFACE_PART_REQUEST}/${_inface_cli}" &> /dev/null
+				sleep 2
+			fi
+			connected=$(get_value_interface_field "${_inface_cli}" state)
+			if [ "${connected}" = 'down' ]; then
+				when_bad "С ОШИБКАМИ"
+				error "Возникла ошибка при подключении интерфейса ${inface_entware}!"
+				error "Проверьте доступность сервера и настройки клиента!"
+				exit 1
+			fi
+		fi	
 		# исправил логику, какая нам разница подключился интерфейс или нет, мы все равно должны настроить правила 
 		# меняем выходной интерфейс в таблице маршрутизации
 		ip4_add_route_table
