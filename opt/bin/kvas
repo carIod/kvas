@@ -114,7 +114,7 @@ case "${1}" in
 
 	dns)
 		case "${2}" in
-			test) 			cmd_dns_test "${3}";;
+			test) 			cmd_dns_test "${3}" ;;
 			*) 				cmd_dnsmasq_dns_change "${2}" ;;
 		esac
 		;;
@@ -123,11 +123,11 @@ case "${1}" in
 		case "${2}" in
 			set) 			cmd_interface_change skip ;;
 			manual)         cmd_interface_set_manual "${3}" ;; # $3 = interface	
-			reset) 			cmd_vpn_iptable_reset && all_services_restart;;
+			reset) 			cmd_vpn_iptable_reset && all_services_restart ;;
 			net | guest)
 				case "${3}" in
-					add ) 			cmd_bridge_vpn_access_add && cmd_vpn_iptable_reset &> /dev/null;;
-					del ) 			cmd_bridge_vpn_access_del && cmd_vpn_iptable_reset &> /dev/null;;
+					add ) 			cmd_bridge_vpn_access_add && cmd_vpn_iptable_reset &> /dev/null ;;
+					del ) 			cmd_bridge_vpn_access_del && cmd_vpn_iptable_reset &> /dev/null ;;
 					*) 				cmd_bridge_vpn_access_list ;;
 				esac
 				;;
@@ -147,7 +147,7 @@ case "${1}" in
 
 	adblock | ads)
 		case "${2}" in
-			on) 			cmd_ads_protect_on ask;;
+			on) 			cmd_ads_protect_on ask ;;
 			off) 			cmd_ads_protect_off ;;
 			edit) 			cmd_ads_edit ;;
 			add)			cmd_ads_add_host "${3}" ;;
