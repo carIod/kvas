@@ -15,7 +15,7 @@ _ENV_INCLUDED=1
 # ------------------------------------------------------------------------------------------
 
 APP_VERSION=1.1.10
-APP_RELEASE=beta.1
+APP_RELEASE=beta.2
 
 APP_NAME_DESC=КВАС
 

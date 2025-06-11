@@ -39,8 +39,12 @@ ip4__route__add_rule(){
 		log_warning "IPv4::Устанавливаем приоритет таблицы ID#${ROUTE_TABLE_ID} в значение ${PRIORITY_RULE}"
 
 		if ip rule add fwmark ${FWMARK_NUM}/${FWMARK_NUM} lookup ${ROUTE_TABLE_ID} priority ${PRIORITY_RULE} 2>&1 | grep -vq 'File exists'; then
-			error "[${FUNCNAME}] Ошибка при установке приоритета таблицы с ID#${ROUTE_TABLE_ID} в значение ${PRIORITY_RULE}."
+			error "[${FUNCNAME}] Ошибка при установке правила маршрутизации в таблицу ID#${ROUTE_TABLE_ID}"
 		fi	
+		if ip rule add fwmark ${FWMARK_NUM}/${FWMARK_NUM} blackhole priority $((PRIORITY_RULE + 1)) 2>&1 | grep -vq 'File exists'; then
+			error "[${FUNCNAME}] Ошибка при установке заглушки blackhole"
+		fi	
+
 		#if ip route add default dev $(inface_ent) table ${ROUTE_TABLE_ID} 2>&1 | grep -vq 'File exists' ; then
 		#		error "[${FUNCNAME}] Ошибка при установке маршрута по умолчанию таблицы с ID#${ROUTE_TABLE_ID}."
 		#fi
