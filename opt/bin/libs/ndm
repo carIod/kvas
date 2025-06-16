@@ -172,7 +172,7 @@ ip4_firewall_nat_dns_redirect(){
 	chain="${START_CHAIN}DNS_REDIR"
 	iptab -t nat -N "${chain}" &>/dev/null
 	log_warning "Подключаем правило редиректа DNS на локальный порт"
-	iptab -t nat -A "${chain}"  -j REDIRECT --to-port "${DNS_PORT}" &>/dev/null || return 1
+	iptab -t nat -A "${chain}"  -p udp --dport "${DNS_PORT}" -j REDIRECT --to-port "${DNS_PORT}" &>/dev/null || return 1
 	iptab -t nat -A PREROUTING  -p udp --dport "${DNS_PORT}" -j "${chain}" &>/dev/null || return 1
 }
 
