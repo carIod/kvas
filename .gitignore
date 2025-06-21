@@ -62,7 +62,7 @@ tests/
 
 ipk/*.ipk
 ipk/*.tar.gz
-ipk/building/control/
+ipk/building/control/control
 
 # mpeltonen/sbt-idea plugin
 #.idea_modules/
